@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rifas de Skins de CS | Dollyn Storm</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="description"
+        content="Participe das rifas e concorra a skins exclusivas do Counter-Strike. Skins 100% originais e sorteios transparentes.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Main Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="js/dataService.js"></script>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="main-header">
+        <div class="container">
+            <div class="logo">
+                <a href="index.html" class="flex align-center">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="main-logo">
+                </a>
+            </div>
+
+            <nav class="desktop-nav">
+                <ul class="flex">
+                    <li><a href="index.html" class="active">Início</a></li>
+                    <li><a href="#campanhas">Campanhas</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions flex align-center gap-15" id="navActions">
+                <!-- Dinamicamente preenchido pelo DataService -->
+                <button class="menu-toggle" id="menuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar Mobile -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header flex align-center justify-between">
+            <img src="assets/logo.png" alt="Dollyn Storm Logo" class="sidebar-logo-img">
+            <button class="close-sidebar" id="closeSidebar">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <!-- Dinâmico -->
+            </ul>
+        </nav>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Rifas de <span class="highlight">Skins de CS</span></h1>
+                    <p>Participe das rifas e concorra a skins exclusivas do Counter-Strike.</p>
+                    <div class="hero-btns flex justify-center gap-15">
+                        <a href="#campanhas" class="premium-btn">
+                            <i data-lucide="crosshair"></i> Participar da Rifa
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <section class="campaigns" id="campanhas">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Rifas de Skin CS</h2>
+                    <p>Escolha seus números e aumente suas chances</p>
+                </div>
+
+                <div class="campaign-grid" id="campaignGrid">
+                    <!-- Produto Teste Único -->
+                    <div class="raffle-card" data-raffle-id="test" data-unit-price="0.50" data-min-qty="5">
+                        <div class="card-image">
+                            <img src="https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=2070&auto=format&fit=crop"
+                                alt="Skin CS">
+                            <div class="status-badge">Aberto</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-meta flex justify-between align-center">
+                                <span class="product-type">Rifa de Skin CS (teste)</span>
+                                <span class="unit-price-tag">R$ 0,50 / número</span>
+                            </div>
+                            <h3>Produto Teste</h3>
+                            <p class="card-subtitle">Participe do sorteio e concorra a uma skin exclusiva.</p>
+
+                            <div class="quantity-selector-container">
+                                <div class="flex align-center justify-between" style="margin-bottom: 8px;">
+                                    <span class="label">Quantidade de números</span>
+                                    <span class="min-qty-hint">(Mínimo 5 unidades)</span>
+                                </div>
+                                <div class="quantity-controls flex align-center justify-between gap-10">
+                                    <button class="qty-shortcut" onclick="MainApp.updateQty('test', -5)">-5</button>
+                                    <button class="qty-btn" id="decreaseQty" onclick="MainApp.updateQty('test', -1)"><i
+                                            data-lucide="minus"></i></button>
+                                    <span class="qty-value" id="qty-test">5</span>
+                                    <button class="qty-btn" id="increaseQty" onclick="MainApp.updateQty('test', 1)"><i
+                                            data-lucide="plus"></i></button>
+                                    <button class="qty-shortcut" onclick="MainApp.updateQty('test', 5)">+5</button>
+                                </div>
+                            </div>
+
+                            <div class="card-footer">
+                                <div class="total-price-display">
+                                    <span class="label">Total a pagar:</span>
+                                    <span class="price" id="total-test">R$ 2,50</span>
+                                </div>
+                                <button class="premium-btn" onclick="MainApp.buyRaffle('test')">Comprar agora</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="footer-logo-img">
+                    <p>Plataforma focada em rifas de skins de CS. Sorteios transparentes e pagamento via PIX.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Links Úteis</h4>
+                    <ul>
+                        <li><a href="#">Sobre nós</a></li>
+                        <li><a href="#">Como funciona</a></li>
+                        <li><a href="#">Termos de Uso</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>Siga-nos</h4>
+                    <div class="social-icons">
+                        <a href="#">Instagram</a>
+                        <a href="#">WhatsApp</a>
+                    </div>
+                </div>
+                <!-- Trust Bar at the very end -->
+                <div class="footer-trust-bar"
+                    style="border-top: 1px solid var(--border-color); padding: 30px 0; margin-top: 40px;">
+                    <div class="flex justify-between align-center flex-wrap gap-20 text-center">
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="shield-check" class="icon-purple"></i>
+                            <span>Skins 100% Originais</span>
+                        </div>
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="refresh-cw" class="icon-purple"></i>
+                            <span>Sorteios Transparentes</span>
+                        </div>
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="zap" class="icon-purple"></i>
+                            <span>Pagamento via PIX</span>
+                        </div>
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="cpu" class="icon-purple"></i>
+                            <span>Sistema Automatizado</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer-bottom">
+                    &copy; 2026 Dollyn Storm Rifas. Todos os direitos reservados.
+                </div>
+            </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

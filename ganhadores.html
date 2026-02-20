@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ganhadores | Dollyn Storm Rifas</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="js/dataService.js"></script>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="main-header">
+        <div class="container">
+            <div class="logo">
+                <a href="index.html" class="flex align-center">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="main-logo">
+                </a>
+            </div>
+
+            <nav class="desktop-nav">
+                <ul class="flex">
+                    <li><a href="index.html">Início</a></li>
+                    <li><a href="index.html#campanhas">Campanhas</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions flex align-center gap-15" id="navActions">
+                <!-- Dinâmico -->
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar Mobile -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header flex align-center justify-between">
+            <img src="assets/logo.png" alt="Dollyn Storm Logo" class="sidebar-logo-img">
+            <button class="close-sidebar" id="closeSidebar">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <!-- Dinâmico -->
+            </ul>
+        </nav>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <main class="page-content">
+        <div class="container">
+            <div class="section-header">
+                <h2>Ganhadores de Skins CS</h2>
+                <p>Confira os últimos vencedores da plataforma</p>
+            </div>
+
+            <div class="winners-grid" id="winnersList">
+                <!-- Dinamicamente preenchido -->
+                <div class="empty-state" style="text-align:center;padding:40px;color:var(--text-dim);">
+                    <p>Nenhum sorteio realizado recentemente.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const winners = DataService.getLotteryData();
+            const container = document.getElementById('winnersList');
+
+            if (winners.length > 0) {
+                container.innerHTML = winners.reverse().map(w => `
+                    <div class="winner-card">
+                        <div class="winner-header flex align-center justify-between">
+                            <div class="winner-info">
+                                <span class="winner-name">${w.winner}</span>
+                                <span class="winner-phone">${w.phone ? w.phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-****") : '***'}</span>
+                            </div>
+                            <div class="winner-date">${w.date.split(' ')[0]}</div>
+                        </div>
+                        <div class="winner-body">
+                            <h3>Campanha: ${w.raffleName || 'Produto Teste'}</h3>
+                            <div class="win-stats">
+                                <div class="stat-item">
+                                    <span class="label">Número Sorteado</span>
+                                    <span class="value highlight">#${w.number}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="label">Prêmio</span>
+                                    <span class="value">${w.prize || 'Skin Oficial'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            lucide.createIcons();
+        });
+    </script>
+
+    <footer class="main-footer">
+        <div class="container">
+            <!-- Trust Bar at the very end -->
+            <div class="footer-trust-bar"
+                style="border-top: 1px solid var(--border-color); padding: 30px 0; margin-top: 40px;">
+                <div class="flex justify-between align-center flex-wrap gap-20 text-center">
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="shield-check" class="icon-purple"></i>
+                        <span>Skins 100% Originais</span>
+                    </div>
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="refresh-cw" class="icon-purple"></i>
+                        <span>Sorteios Transparentes</span>
+                    </div>
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="zap" class="icon-purple"></i>
+                        <span>Pagamento via PIX</span>
+                    </div>
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="cpu" class="icon-purple"></i>
+                        <span>Sistema Automatizado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                &copy; 2026 Dollyn Storm Rifas. Todos os direitos reservados.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+    </script>
+    <style>
+        .page-content {
+            padding: 40px 0;
+        }
+
+        .winners-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .winner-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 25px;
+            transition: var(--transition-smooth);
+        }
+
+        .winner-card:hover {
+            border-color: var(--accent-primary);
+            box-shadow: var(--purple-glow);
+        }
+
+        .winner-name {
+            display: block;
+            font-weight: 800;
+            font-size: 20px;
+            color: #fff;
+        }
+
+        @media (max-width: 768px) {
+            .section-header {
+                text-align: center;
+            }
+
+            .winner-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .win-stats {
+                flex-direction: column;
+                gap: 15px;
+                align-items: center;
+                text-align: center;
+            }
+
+            .winner-body h3 {
+                text-align: center;
+            }
+        }
+    </style>
+</body>
+
+</html>

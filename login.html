@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrar | Dollyn Storm Rifas</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="auth-page">
+
+    <div class="auth-container" style="display: flex; justify-content: center; align-items: center; width: 100%;">
+        <div class="auth-card glass"
+            style="box-shadow: var(--card-shadow); border-radius: 28px; border: 1px solid rgba(167, 139, 250, 0.1); width: 100%; max-width: 420px; text-align: center;">
+            <div class="auth-header" style="margin-bottom: 35px;">
+                <a href="index.html" style="display: block; margin-bottom: 25px;">
+                    <img src="assets/logo.png" alt="Dollyn Storm" style="height: 60px;">
+                </a>
+                <h1 style="font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: #fff;">Acesso ao Sistema
+                </h1>
+                <p style="color: var(--text-dim); font-size: 14px; margin-top: 8px;">Área exclusiva para participantes e
+                    jogadores</p>
+            </div>
+
+            <form id="authForm" class="auth-form" style="gap: 15px; display: flex; flex-direction: column;">
+                <div class="form-group" id="nameGroup" style="display: none; text-align: left;">
+                    <label
+                        style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">Nome
+                        Completo</label>
+                    <input type="text" id="name" placeholder="Seu nome completo"
+                        style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
+                </div>
+                <div class="form-group" id="cpfGroup" style="display: none; text-align: left;">
+                    <label
+                        style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">CPF
+                        (Apenas números)</label>
+                    <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14"
+                        style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
+                </div>
+                <div class="form-group" style="text-align: left;">
+                    <label
+                        style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">WhatsApp
+                        / Telefone</label>
+                    <input type="tel" id="phone" placeholder="(00) 00000-0000"
+                        style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
+                </div>
+                <div class="form-group" style="text-align: left;">
+                    <label
+                        style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">Senha</label>
+                    <input type="password" id="password" placeholder="••••••••"
+                        style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 5px;">
+                    <button type="submit" class="premium-btn full" id="authBtn">Entrar</button>
+                    <button type="button" class="nav-btn-link" id="toggleReg"
+                        style="width: 100%; justify-content: center; border: 1px solid var(--border-color);">Criar
+                        Conta</button>
+                </div>
+            </form>
+
+            <div class="auth-footer"
+                style="margin-top: 35px; border-top: 1px solid var(--border-color); padding-top: 25px;">
+                <a href="index.html" class="back-link"
+                    style="opacity: 0.7; font-weight: 500; color: var(--text-dim);">Voltar para o Início</a>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .auth-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: radial-gradient(circle at 50% 50%, #1a1033, #0a0a0b);
+            padding: 20px;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .auth-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header h1 {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+
+        .auth-header p {
+            color: var(--text-dim);
+            margin-top: 5px;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .form-group input {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #fff;
+            transition: var(--transition-smooth);
+        }
+
+        .form-group input:focus {
+            border-color: var(--accent-primary);
+            outline: none;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+        }
+
+        .auth-footer {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .back-link {
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            color: #fff;
+        }
+    </style>
+
+    <script src="js/dataService.js"></script>
+    <script>
+        const authForm = document.getElementById('authForm');
+        const authBtn = document.getElementById('authBtn');
+        const toggleReg = document.getElementById('toggleReg');
+        const nameGroup = document.getElementById('nameGroup');
+        const cpfGroup = document.getElementById('cpfGroup');
+        const title = document.querySelector('h1');
+
+        let isRegister = false;
+
+        // CPF Mask
+        document.getElementById('cpf')?.addEventListener('input', (e) => {
+            let v = e.target.value.replace(/\D/g, "");
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            e.target.value = v;
+        });
+
+        toggleReg.addEventListener('click', () => {
+            isRegister = !isRegister;
+            nameGroup.style.display = isRegister ? 'block' : 'none';
+            cpfGroup.style.display = isRegister ? 'block' : 'none';
+            title.textContent = isRegister ? 'Criar Conta' : 'Acesso ao Sistema';
+            authBtn.textContent = isRegister ? 'Finalizar Cadastro' : 'Entrar';
+            toggleReg.textContent = isRegister ? 'Já tenho conta' : 'Criar Conta';
+        });
+
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const phone = document.getElementById('phone').value.replace(/\D/g, "");
+            const pass = document.getElementById('password').value;
+            const users = DataService.getUsers();
+
+            if (isRegister) {
+                const name = document.getElementById('name').value;
+                const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, "");
+
+                if (!name || name.length < 3) return alert('Informe seu nome completo.');
+                if (!DataService.validateCPF(cpfRaw)) return alert('CPF inválido. Por favor, confira.');
+                if (phone.length < 10) return alert('Informe um telefone válido.');
+                if (pass.length < 6) return alert('A senha deve ter no mínimo 6 caracteres.');
+
+                // Duplicate checks
+                if (users.find(u => u.phone === phone)) return alert('Telefone já cadastrado.');
+                if (users.find(u => u.cpf === cpfRaw)) return alert('CPF já cadastrado.');
+
+                const newUser = {
+                    name,
+                    cpf: cpfRaw,
+                    phone,
+                    password: DataService.encryptPassword(pass),
+                    purchaseHistory: [],
+                    totalNumbers: 0,
+                    date: new Date().toLocaleDateString()
+                };
+
+                users.push(newUser);
+                localStorage.setItem(DataService.KEYS.USERS, JSON.stringify(users));
+                localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(newUser));
+
+                alert('Conta criada com sucesso!');
+                window.location.href = 'index.html';
+            } else {
+                // Admin check
+                if (DataService.loginAdmin(document.getElementById('phone').value, pass)) {
+                    window.location.href = 'admin.html';
+                    return;
+                }
+
+                const user = users.find(u => u.phone === phone);
+                if (user && user.password === DataService.encryptPassword(pass)) {
+                    localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(user));
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert('Credenciais incorretas.');
+                }
+            }
+        });
+
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

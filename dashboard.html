@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Títulos | Dollyn Storm Rifas</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="js/dataService.js"></script>
+</head>
+
+<body>
+
+    <!-- Sidebar Mobile -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header flex align-center justify-between">
+            <img src="assets/logo.png" alt="Dollyn Storm Logo" class="sidebar-logo-img">
+            <button class="close-sidebar" id="closeSidebar">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <!-- Dinâmico -->
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Header -->
+    <header class="main-header">
+        <div class="container">
+            <div class="logo">
+                <a href="index.html" class="flex align-center">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="main-logo">
+                </a>
+            </div>
+
+            <nav class="desktop-nav">
+                <ul class="flex">
+                    <li><a href="index.html">Início</a></li>
+                    <li><a href="dashboard.html" class="active">Meus Títulos</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions flex align-center gap-15" id="navActions">
+                <!-- Dinamicamente preenchido -->
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-content">
+        <div class="container">
+            <div class="dashboard-header flex align-center justify-between">
+                <div>
+                    <h1><i data-lucide="user" class="icon-purple"></i> Dashboard do Cliente</h1>
+                    <p style="color:var(--text-dim);font-size:14px;">Acompanhe suas participações em tempo real</p>
+                </div>
+
+                <div class="tabs flex">
+                    <button class="tab-btn active" data-tab="active">Ativas</button>
+                    <button class="tab-btn" data-tab="ended">Encerradas</button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="activeRaffles">
+                <section class="raffle-titles" style="margin-top:40px;">
+                    <div class="section-header">
+                        <h2>Meus Números</h2>
+                        <p>Você tem <span class="highlight" id="userTotalTickets">0</span> cotas vinculadas</p>
+                    </div>
+
+                    <div class="titles-grid" id="userTicketsGrid">
+                        <!-- Dinamicamente carregado via JS -->
+                        <div class="empty-state"
+                            style="text-align:center;padding:60px 20px;background:var(--bg-secondary);border-radius:24px;border:1px dashed var(--border-color);">
+                            <i data-lucide="ticket"
+                                style="width:48px;height:48px;color:var(--text-dim);margin-bottom:15px;"></i>
+                            <p style="color:var(--text-dim);">Nenhuma participação ativa no Produto Teste.</p>
+                            <a href="index.html#campanhas" class="premium-btn sm" style="margin-top:20px;">Participar
+                                Agora</a>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="tab-content" id="endedRaffles" style="display: none;">
+                <div class="raffle-ticket-card closed">
+                    <div class="ticket-header flex justify-between">
+                        <h3>PC GAMER EXTREME</h3>
+                        <span class="status-pill">Finalizado</span>
+                    </div>
+                    <div class="ticket-body" style="margin-top:15px;">
+                        <p>Sorteio realizado em 10/02/2026</p>
+                        <p class="winner-label" style="color:var(--accent-primary);margin-top:10px;">Ganhador:
+                            <strong>Maria Oliveira (#0852)</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="footer-logo-img">
+                    <p>Plataforma focada em rifas de skins de CS. Sorteios transparentes e pagamento via PIX.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Links Úteis</h4>
+                    <ul>
+                        <li><a href="#">Sobre nós</a></li>
+                        <li><a href="#">Como funciona</a></li>
+                        <li><a href="#">Termos de Uso</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>Siga-nos</h4>
+                    <div class="social-icons">
+                        <a href="#">Instagram</a>
+                        <a href="#">WhatsApp</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trust Bar at the very end -->
+            <div class="footer-trust-bar"
+                style="border-top: 1px solid var(--border-color); padding: 30px 0; margin-top: 40px;">
+                <div class="flex justify-between align-center flex-wrap gap-20 text-center">
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="shield-check" class="icon-purple"></i>
+                        <span>Skins 100% Originais</span>
+                    </div>
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="refresh-cw" class="icon-purple"></i>
+                        <span>Sorteios Transparentes</span>
+                    </div>
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="zap" class="icon-purple"></i>
+                        <span>Pagamento via PIX</span>
+                    </div>
+                    <div class="trust-item flex align-center gap-10">
+                        <i data-lucide="cpu" class="icon-purple"></i>
+                        <span>Sistema Automatizado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom"
+                style="text-align: center; border-top: 1px solid var(--border-color); padding-top: 30px;">
+                &copy; 2026 Dollyn Storm Rifas. Todos os direitos reservados.
+            </div>
+        </div>
+    </footer>
+
+    <style>
+        .dashboard-content {
+            padding: 40px 0;
+        }
+
+        .dashboard-header {
+            margin-bottom: 40px;
+        }
+
+        .tabs {
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: var(--text-muted);
+            padding: 10px 20px;
+            font-weight: 600;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-primary);
+            background: rgba(139, 92, 246, 0.1);
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.1);
+        }
+
+        .raffle-ticket-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: var(--transition-smooth);
+        }
+
+        .status-pill {
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--bg-tertiary);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .status-pill.active {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--accent-primary);
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 30px;
+            }
+
+            .tabs {
+                justify-content: center;
+                width: 100%;
+            }
+
+            .section-header {
+                text-align: center;
+            }
+
+            .titles-grid {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .empty-state {
+                width: 100%;
+                max-width: 400px;
+            }
+        }
+    </style>
+
+    <script src="js/main.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = DataService.getCurrentUser();
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.querySelector('.user-name').textContent = `Olá, ${user.name.split(' ')[0]}`;
+
+            const purchases = DataService.getPurchases().filter(p => p.userPhone === user.phone);
+            const totalTickets = purchases.reduce((sum, p) => sum + p.numbers.length, 0);
+            document.getElementById('userTotalTickets').textContent = totalTickets;
+
+            if (totalTickets > 0) {
+                const grid = document.getElementById('userTicketsGrid');
+                grid.innerHTML = purchases.map(p => `
+                    <div class="raffle-ticket-card">
+                        <div class="ticket-header flex justify-between">
+                            <h3>${p.raffleName || 'Rifa de Skin'}</h3>
+                            <span class="status-pill active">Participando</span>
+                        </div>
+                        <div class="nums-grid">
+                            ${p.numbers.map(n => `<span class="num-chip">#${n}</span>`).join('')}
+                        </div>
+                        <div class="ticket-body">
+                            <p style="font-size:12px;color:var(--text-dim);">Compra realizada em ${p.date}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        });
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                document.getElementById('activeRaffles').style.display = tab === 'active' ? 'block' : 'none';
+                document.getElementById('endedRaffles').style.display = tab === 'ended' ? 'block' : 'none';
+            });
+        });
+    </script>
+</body>
+
+</html>
