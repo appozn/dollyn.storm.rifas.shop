@@ -145,12 +145,22 @@
             padding: 12px 16px;
             color: #fff;
             transition: var(--transition-smooth);
+            position: relative;
+            z-index: 5;
+            pointer-events: auto;
         }
 
         .form-group input:focus {
             border-color: var(--accent-primary);
             outline: none;
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+        }
+
+        .premium-btn,
+        .nav-btn-link {
+            position: relative;
+            z-index: 5;
+            pointer-events: auto;
         }
 
         .auth-footer {
@@ -170,92 +180,106 @@
 
     <script src="js/dataService.js"></script>
     <script>
-        const authForm = document.getElementById('authForm');
-        const authBtn = document.getElementById('authBtn');
-        const toggleReg = document.getElementById('toggleReg');
-        const nameGroup = document.getElementById('nameGroup');
-        const cpfGroup = document.getElementById('cpfGroup');
-        const phoneGroup = document.getElementById('phoneGroup');
-        const title = document.querySelector('h1');
+        document.addEventListener('DOMContentLoaded', () => {
+            const authForm = document.getElementById('authForm');
+            const authBtn = document.getElementById('authBtn');
+            const toggleReg = document.getElementById('toggleReg');
+            const nameGroup = document.getElementById('nameGroup');
+            const cpfGroup = document.getElementById('cpfGroup');
+            const phoneGroup = document.getElementById('phoneGroup');
+            const title = document.querySelector('h1');
 
-        let isRegister = false;
+            let isRegister = false;
 
-        // CPF Mask
-        document.getElementById('cpf')?.addEventListener('input', (e) => {
-            let v = e.target.value.replace(/\D/g, "");
-            v = v.replace(/(\d{3})(\d)/, "$1.$2");
-            v = v.replace(/(\d{3})(\d)/, "$1.$2");
-            v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-            e.target.value = v;
-        });
-
-        toggleReg.addEventListener('click', () => {
-            isRegister = !isRegister;
-            nameGroup.style.display = isRegister ? 'block' : 'none';
-            cpfGroup.style.display = isRegister ? 'block' : 'none';
-            phoneGroup.style.display = isRegister ? 'block' : 'none';
-            title.textContent = isRegister ? 'Criar Conta' : 'Acesso ao Sistema';
-            authBtn.textContent = isRegister ? 'Finalizar Cadastro' : 'Entrar';
-            toggleReg.textContent = isRegister ? 'Já tenho conta' : 'Criar Conta';
-        });
-
-        authForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value.trim();
-            const pass = document.getElementById('password').value;
-            const users = DataService.getUsers();
-
-            if (isRegister) {
-                const name = document.getElementById('name').value;
-                const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, "");
-                const phone = document.getElementById('phone').value.replace(/\D/g, "");
-
-                if (!name || name.length < 3) return alert('Informe seu nome completo.');
-                if (!DataService.validateCPF(cpfRaw)) return alert('CPF inválido. Por favor, confira.');
-                if (!email || !email.includes('@')) return alert('Informe um e-mail válido.');
-                if (phone.length < 10) return alert('Informe um telefone válido.');
-                if (pass.length < 6) return alert('A senha deve ter no mínimo 6 caracteres.');
-
-                // Duplicate checks
-                if (users.find(u => u.email === email)) return alert('Este e-mail já está cadastrado.');
-                if (users.find(u => u.phone === phone)) return alert('Telefone já cadastrado.');
-                if (users.find(u => u.cpf === cpfRaw)) return alert('CPF já cadastrado.');
-
-                const newUser = {
-                    name,
-                    cpf: cpfRaw,
-                    email,
-                    phone,
-                    password: DataService.encryptPassword(pass),
-                    purchaseHistory: [],
-                    totalNumbers: 0,
-                    date: new Date().toLocaleDateString()
-                };
-
-                users.push(newUser);
-                localStorage.setItem(DataService.KEYS.USERS, JSON.stringify(users));
-                localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(newUser));
-
-                alert('Conta criada com sucesso!');
-                window.location.href = 'index.html';
-            } else {
-                // Admin check
-                if (DataService.loginAdmin(email, pass)) {
-                    window.location.href = 'admin.html';
-                    return;
-                }
-
-                const user = users.find(u => u.email === email);
-                if (user && user.password === DataService.encryptPassword(pass)) {
-                    localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(user));
-                    window.location.href = 'dashboard.html';
-                } else {
-                    alert('Credenciais incorretas.');
-                }
+            // CPF Mask
+            const cpfInput = document.getElementById('cpf');
+            if (cpfInput) {
+                cpfInput.addEventListener('input', (e) => {
+                    let v = e.target.value.replace(/\D/g, "");
+                    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                    v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+                    e.target.value = v;
+                });
             }
-        });
 
-        lucide.createIcons();
+            if (toggleReg) {
+                toggleReg.addEventListener('click', () => {
+                    isRegister = !isRegister;
+                    if (nameGroup) nameGroup.style.display = isRegister ? 'block' : 'none';
+                    if (cpfGroup) cpfGroup.style.display = isRegister ? 'block' : 'none';
+                    if (phoneGroup) phoneGroup.style.display = isRegister ? 'block' : 'none';
+                    if (title) title.textContent = isRegister ? 'Criar Conta' : 'Acesso ao Sistema';
+                    if (authBtn) authBtn.textContent = isRegister ? 'Finalizar Cadastro' : 'Entrar';
+                    if (toggleReg) toggleReg.textContent = isRegister ? 'Já tenho conta' : 'Criar Conta';
+                });
+            }
+
+            if (authForm) {
+                authForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const emailInput = document.getElementById('email');
+                    const passInput = document.getElementById('password');
+
+                    if (!emailInput || !passInput) return;
+
+                    const email = emailInput.value.trim();
+                    const pass = passInput.value;
+                    const users = DataService.getUsers();
+
+                    if (isRegister) {
+                        const name = document.getElementById('name').value;
+                        const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, "");
+                        const phone = document.getElementById('phone').value.replace(/\D/g, "");
+
+                        if (!name || name.length < 2) return alert('Informe seu nome completo.');
+                        if (!DataService.validateCPF(cpfRaw)) return alert('CPF inválido. Por favor, confira.');
+                        if (!email || !email.includes('@')) return alert('Informe um e-mail válido.');
+                        if (phone.length < 10) return alert('Informe um telefone válido.');
+                        if (pass.length < 6) return alert('A senha deve ter no mínimo 6 caracteres.');
+
+                        // Duplicate checks
+                        if (users.find(u => u.email === email)) return alert('Este e-mail já está cadastrado.');
+                        if (users.find(u => u.phone === phone)) return alert('Telefone já cadastrado.');
+                        if (users.find(u => u.cpf === cpfRaw)) return alert('CPF já cadastrado.');
+
+                        const newUser = {
+                            name,
+                            cpf: cpfRaw,
+                            email,
+                            phone,
+                            password: DataService.encryptPassword(pass),
+                            purchaseHistory: [],
+                            totalNumbers: 0,
+                            date: new Date().toLocaleDateString()
+                        };
+
+                        users.push(newUser);
+                        localStorage.setItem(DataService.KEYS.USERS, JSON.stringify(users));
+                        localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(newUser));
+
+                        alert('Conta criada com sucesso!');
+                        window.location.href = 'index.html';
+                    } else {
+                        // Admin check
+                        if (DataService.loginAdmin(email, pass)) {
+                            window.location.href = 'admin.html';
+                            return;
+                        }
+
+                        const user = users.find(u => u.email === email);
+                        if (user && user.password === DataService.encryptPassword(pass)) {
+                            localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(user));
+                            window.location.href = 'dashboard.html';
+                        } else {
+                            alert('Credenciais incorretas.');
+                        }
+                    }
+                });
+            }
+
+            if (window.lucide) lucide.createIcons();
+        });
     </script>
 </body>
 

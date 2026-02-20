@@ -136,6 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderCampaignCards();
 
+    // Listen for changes in localStorage from other tabs (like admin)
+    window.addEventListener('storage', (e) => {
+        if (e.key === DataService.KEYS.RAFFLES_LIST) {
+            renderCampaignCards();
+        }
+    });
+
     // Globals for dynamic interaction
     window.MainApp = {
         updateQty(raffleId, delta) {

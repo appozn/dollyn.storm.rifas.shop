@@ -25,6 +25,9 @@
 
     --font-main: 'Inter', system-ui, -apple-system, sans-serif;
     --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -61,6 +64,7 @@ body {
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
     transition: 0.5s;
+    pointer-events: none;
 }
 
 .glass:hover::after {
