@@ -46,7 +46,13 @@
                     <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14"
                         style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
                 </div>
-                <div class="form-group" style="text-align: left;">
+                <div class="form-group" id="emailGroup" style="text-align: left;">
+                    <label
+                        style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">E-mail</label>
+                    <input type="email" id="email" placeholder="seu@email.com"
+                        style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
+                </div>
+                <div class="form-group" id="phoneGroup" style="display: none; text-align: left;">
                     <label
                         style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">WhatsApp
                         / Telefone</label>
@@ -169,6 +175,7 @@
         const toggleReg = document.getElementById('toggleReg');
         const nameGroup = document.getElementById('nameGroup');
         const cpfGroup = document.getElementById('cpfGroup');
+        const phoneGroup = document.getElementById('phoneGroup');
         const title = document.querySelector('h1');
 
         let isRegister = false;
@@ -186,6 +193,7 @@
             isRegister = !isRegister;
             nameGroup.style.display = isRegister ? 'block' : 'none';
             cpfGroup.style.display = isRegister ? 'block' : 'none';
+            phoneGroup.style.display = isRegister ? 'block' : 'none';
             title.textContent = isRegister ? 'Criar Conta' : 'Acesso ao Sistema';
             authBtn.textContent = isRegister ? 'Finalizar Cadastro' : 'Entrar';
             toggleReg.textContent = isRegister ? 'Já tenho conta' : 'Criar Conta';
@@ -193,26 +201,30 @@
 
         authForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const phone = document.getElementById('phone').value.replace(/\D/g, "");
+            const email = document.getElementById('email').value.trim();
             const pass = document.getElementById('password').value;
             const users = DataService.getUsers();
 
             if (isRegister) {
                 const name = document.getElementById('name').value;
                 const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, "");
+                const phone = document.getElementById('phone').value.replace(/\D/g, "");
 
                 if (!name || name.length < 3) return alert('Informe seu nome completo.');
                 if (!DataService.validateCPF(cpfRaw)) return alert('CPF inválido. Por favor, confira.');
+                if (!email || !email.includes('@')) return alert('Informe um e-mail válido.');
                 if (phone.length < 10) return alert('Informe um telefone válido.');
                 if (pass.length < 6) return alert('A senha deve ter no mínimo 6 caracteres.');
 
                 // Duplicate checks
+                if (users.find(u => u.email === email)) return alert('Este e-mail já está cadastrado.');
                 if (users.find(u => u.phone === phone)) return alert('Telefone já cadastrado.');
                 if (users.find(u => u.cpf === cpfRaw)) return alert('CPF já cadastrado.');
 
                 const newUser = {
                     name,
                     cpf: cpfRaw,
+                    email,
                     phone,
                     password: DataService.encryptPassword(pass),
                     purchaseHistory: [],
@@ -228,12 +240,12 @@
                 window.location.href = 'index.html';
             } else {
                 // Admin check
-                if (DataService.loginAdmin(document.getElementById('phone').value, pass)) {
+                if (DataService.loginAdmin(email, pass)) {
                     window.location.href = 'admin.html';
                     return;
                 }
 
-                const user = users.find(u => u.phone === phone);
+                const user = users.find(u => u.email === email);
                 if (user && user.password === DataService.encryptPassword(pass)) {
                     localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(user));
                     window.location.href = 'dashboard.html';

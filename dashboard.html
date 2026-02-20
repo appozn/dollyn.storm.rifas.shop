@@ -258,7 +258,8 @@
                 return;
             }
 
-            document.querySelector('.user-name').textContent = `Olá, ${user.name.split(' ')[0]}`;
+            const greeting = document.querySelector('.user-greeting');
+            if (greeting) greeting.textContent = `Olá, ${user.name.split(' ')[0]}`;
 
             const purchases = DataService.getPurchases().filter(p => p.userPhone === user.phone);
             const totalTickets = purchases.reduce((sum, p) => sum + p.numbers.length, 0);
