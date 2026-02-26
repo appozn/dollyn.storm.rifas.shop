@@ -249,9 +249,12 @@
     <script src="js/main.js"></script>
     <script>
         lucide.createIcons();
+        window.addEventListener('storage', () => {
+            location.reload(); // Simple refresh for sync
+        });
     </script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const user = DataService.getCurrentUser();
             if (!user) {
                 window.location.href = 'login.html';
@@ -261,8 +264,11 @@
             const greeting = document.querySelector('.user-greeting');
             if (greeting) greeting.textContent = `Olá, ${user.name.split(' ')[0]}`;
 
-            const purchases = DataService.getPurchases().filter(p => p.userPhone === user.phone);
-            const totalTickets = purchases.reduce((sum, p) => sum + p.numbers.length, 0);
+            // Wait for Firebase to initialize if needed
+            if (!DataService.db) await new Promise(r => setTimeout(r, 1000));
+
+            const purchases = (await DataService.getPurchases()).filter(p => p.userPhone === user.phone);
+            const totalTickets = purchases.reduce((sum, p) => sum + (p.numbers ? p.numbers.length : 0), 0);
             document.getElementById('userTotalTickets').textContent = totalTickets;
 
             if (totalTickets > 0) {
@@ -271,13 +277,15 @@
                     <div class="raffle-ticket-card">
                         <div class="ticket-header flex justify-between">
                             <h3>${p.raffleName || 'Rifa de Skin'}</h3>
-                            <span class="status-pill active">Participando</span>
+                            <span class="status-pill ${p.status === 'Confirmado' ? 'active' : 'pending'}">${p.status === 'Confirmado' ? 'Participando' : 'Aguardando Aprovação'}</span>
                         </div>
-                        <div class="nums-grid">
-                            ${p.numbers.map(n => `<span class="num-chip">#${n}</span>`).join('')}
+                        <div class="nums-grid" style="${p.status === 'Confirmado' ? '' : 'filter:blur(4px); pointer-events:none;'}">
+                            ${p.numbers ? p.numbers.map(n => `<span class="num-chip">#${n}</span>`).join('') : ''}
                         </div>
                         <div class="ticket-body">
-                            <p style="font-size:12px;color:var(--text-dim);">Compra realizada em ${p.date}</p>
+                            ${p.status === 'Confirmado'
+                        ? `<p style="font-size:12px;color:var(--text-dim);">Compra realizada em ${p.date}</p>`
+                        : `<p style="font-size:13px;color:var(--accent-primary);font-weight:600;margin-top:10px;">Aguardando o administrador confirmar seu pagamento PIX.</p>`}
                         </div>
                     </div>
                 `).join('');
