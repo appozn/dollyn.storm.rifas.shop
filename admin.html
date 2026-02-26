@@ -310,14 +310,12 @@
             bindEvents() {
                 window.addEventListener('hashchange', () => this.handleNavigation());
                 document.getElementById('raffleForm')?.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleSaveRaffle();
+                    this.handleSaveRaffle(e);
                 });
                 document.getElementById('winnerForm')?.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleSaveManualWinner();
+                    this.handleSaveManualWinner(e);
                 });
-                document.getElementById('confirmWinnerBtn')?.addEventListener('click', () => this.confirmAutoWinner());
+                document.getElementById('confirmWinnerBtn')?.addEventListener('click', () => this.saveLotteryWinner());
             },
 
             handleNavigation() {
@@ -451,8 +449,9 @@
                 }
             },
 
-            editRaffle(id) {
-                const r = DataService.getRafflesList().find(x => x.id === id);
+            async editRaffle(id) {
+                const raffles = await DataService.getRafflesList();
+                const r = raffles.find(x => x.id === id);
                 if (r) {
                     document.getElementById('raffleId').value = r.id;
                     document.getElementById('raffleName').value = r.name;
@@ -497,9 +496,9 @@
                 this.updateSorteioStats();
             },
 
-            updateSorteioStats() {
+            async updateSorteioStats() {
                 const raffleId = document.getElementById('sorteioRaffleId').value;
-                const sold = DataService.getNumbersSold().filter(n => n.raffleId === raffleId);
+                const sold = (await DataService.getNumbersSold()).filter(n => n.raffleId === raffleId);
                 const btn = document.getElementById('btnSortear');
                 btn.disabled = sold.length === 0;
                 btn.textContent = sold.length === 0 ? 'Sem Vendas' : 'Realizar Sorteio';
