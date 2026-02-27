@@ -218,16 +218,16 @@
                             <select id="winnerRaffleId" required></select>
                         </div>
                         <div class="form-group">
-                            <label>Número(s) de Cotas</label>
-                            <input type="text" id="winnerNumber" placeholder="Ex: 00123" required>
-                        </div>
-                        <div class="form-group">
                             <label>Nome do Ganhador</label>
                             <input type="text" id="winnerName" required>
                         </div>
                         <div class="form-group">
-                            <label>Instagram do Ganhador</label>
-                            <input type="text" id="winnerInstagram" placeholder="@usuario">
+                            <label>Número da Sorte</label>
+                            <input type="text" id="winnerNumber" placeholder="Ex: 00123" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantidade Comprada</label>
+                            <input type="number" id="winnerQty" placeholder="Ex: 5" required>
                         </div>
                         <div class="form-actions" style="grid-column: span 2;">
                             <button type="submit" class="premium-btn">Adicionar Ganhador</button>
@@ -258,8 +258,10 @@
                         <div style="font-size:32px;font-weight:800;margin:20px 0;" id="luckyNumber"></div>
                         <p style="font-size:18px;font-weight:600;" id="luckyWinnerName"></p>
                         <p style="color:var(--text-dim);" id="luckyWinnerCpf"></p>
-                        <p style="color:var(--accent-primary); font-weight: 700; margin-top: 10px; margin-bottom: 20px;"
+                        <p style="color:var(--accent-primary); font-weight: 700; margin-top: 5px;"
                             id="luckyWinnerPhone"></p>
+                        <p style="color:var(--text-main); font-weight: 600; margin-bottom: 20px;" id="luckyWinnerQty">
+                        </p>
                         <div id="drawConfirmation"
                             style="margin-top:20px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; gap:12px; align-items:center;">
                             <button class="premium-btn sm" id="confirmWinnerBtn">Confirmar e Salvar</button>
@@ -307,6 +309,9 @@
 
         const AdminPanel = {
             init() {
+                if (this.initialized) return;
+                this.initialized = true;
+
                 this.bindEvents();
                 this.handleNavigation();
                 this.tempWinner = null;
@@ -500,11 +505,11 @@
                     raffleName: document.getElementById('winnerRaffleId').options[document.getElementById('winnerRaffleId').selectedIndex].text,
                     number: document.getElementById('winnerNumber').value.trim(),
                     winner: document.getElementById('winnerName').value.trim(),
-                    instagram: document.getElementById('winnerInstagram').value.trim()
+                    qty: document.getElementById('winnerQty').value.trim()
                 };
 
-                if (!winner.number || !winner.winner) {
-                    alert('Por favor, preencha o número e o nome do ganhador.');
+                if (!winner.number || !winner.winner || !winner.qty) {
+                    alert('Por favor, preencha todos os campos do ganhador.');
                     return;
                 }
 
@@ -544,7 +549,8 @@
                     number: lucky.number,
                     winner: lucky.userName,
                     phone: lucky.userPhone,
-                    raffleName: raffle.name
+                    raffleName: raffle.name,
+                    qty: lucky.qty
                 };
 
                 // Build WhatsApp send link
@@ -567,6 +573,9 @@
                 document.getElementById('luckyWinnerCpf').textContent = 'CPF: ' + (lucky.userCpf || 'N/A');
                 document.getElementById('luckyWinnerPhone').textContent = 'WhatsApp: ' + (lucky.userPhone || 'N/A');
 
+                const luckyQty = document.getElementById('luckyWinnerQty');
+                if (luckyQty) luckyQty.textContent = 'Qtd Comprada: ' + (lucky.qty || '1');
+
                 const waBtn = document.getElementById('whatsappWinnerBtn');
                 if (waBtn) {
                     waBtn.href = whatsappUrl;
@@ -581,7 +590,7 @@
                     raffleName: this.tempWinner.raffleName,
                     number: this.tempWinner.number,
                     winner: this.tempWinner.winner,
-                    instagram: '' // Manual edit if needed
+                    qty: this.tempWinner.qty || 1
                 };
                 await DataService.saveWinner(winner);
                 alert('Ganhador oficializado!');

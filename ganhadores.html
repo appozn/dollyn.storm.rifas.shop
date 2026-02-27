@@ -87,7 +87,6 @@
                 container.innerHTML = [...validWinners].reverse().map(w => {
                     // Fix date formatting (remove commas)
                     const cleanDate = w.date ? w.date.split(',')[0].split(' ')[0] : 'Data N/A';
-                    const insta = w.instagram ? (w.instagram.startsWith('@') ? w.instagram : '@' + w.instagram) : '';
 
                     return `
                     <div class="winner-card glass">
@@ -98,7 +97,7 @@
                                 </div>
                                 <div class="winner-details">
                                     <span class="winner-name">${w.winner}</span>
-                                    ${insta ? `<span class="winner-insta">${insta}</span>` : ''}
+                                    <span class="info-label" style="display:block; margin-top:4px;">Ganhador(a)</span>
                                 </div>
                             </div>
                             <div class="winner-date-pill">
@@ -109,11 +108,15 @@
                         
                         <div class="winner-body-new">
                             <div class="win-info-box">
-                                <span class="info-label">Campanha</span>
+                                <span class="info-label">Produto</span>
                                 <span class="info-value">${w.raffleName || 'Rifa Online'}</span>
                             </div>
-                            <div class="win-number-box">
-                                <span class="info-label">Número Sorteado</span>
+                            <div class="win-info-box">
+                                <span class="info-label">Números Comprados</span>
+                                <span class="info-value">${w.qty ? w.qty + ' Cotas' : 'N/A'}</span>
+                            </div>
+                            <div class="win-number-box" style="grid-column: span 2;">
+                                <span class="info-label">Número da Sorte</span>
                                 <div class="number-badge">
                                     <i data-lucide="award"></i>
                                     <span>#${w.number}</span>
