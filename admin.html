@@ -12,6 +12,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/dataService.js"></script>
@@ -78,8 +81,11 @@
                 <div class="header-center">
                     <h2><i data-lucide="bar-chart-3" class="icon-purple"></i> Painel Administrativo</h2>
                 </div>
-                <div class="header-right">
-                    <!-- Actions can go here -->
+                <div class="header-right flex align-center gap-15">
+                    <div id="cloudStatus" class="status-indicator">
+                        <i data-lucide="cloud-off" class="icon-dim"></i>
+                        <span>Modo Local</span>
+                    </div>
                 </div>
             </header>
 
@@ -213,7 +219,7 @@
                         </div>
                         <div class="form-group">
                             <label>Número(s) de Cotas</label>
-                            <input type="text" id="winnerNumber" placeholder="Ex: 00123, 00456" required>
+                            <input type="text" id="winnerNumber" placeholder="Ex: 00123" required>
                         </div>
                         <div class="form-group">
                             <label>Nome do Ganhador</label>
@@ -304,7 +310,19 @@
                 this.bindEvents();
                 this.handleNavigation();
                 this.tempWinner = null;
+                this.updateCloudStatus();
                 DataService.renderMenu();
+            },
+
+            updateCloudStatus() {
+                const statusDiv = document.getElementById('cloudStatus');
+                if (!statusDiv) return;
+                if (DataService.useCloud && DataService.db) {
+                    statusDiv.innerHTML = `<i data-lucide="cloud" class="icon-purple"></i> <span style="color:var(--accent-primary)">Nuvem Ativa ☁️</span>`;
+                } else {
+                    statusDiv.innerHTML = `<i data-lucide="cloud-off" class="icon-dim"></i> <span>Modo Local</span>`;
+                }
+                if (window.lucide) lucide.createIcons();
             },
 
             bindEvents() {
@@ -480,10 +498,16 @@
                 const winner = {
                     raffleId: raffleId,
                     raffleName: document.getElementById('winnerRaffleId').options[document.getElementById('winnerRaffleId').selectedIndex].text,
-                    number: document.getElementById('winnerNumber').value,
-                    winner: document.getElementById('winnerName').value,
-                    instagram: document.getElementById('winnerInstagram').value
+                    number: document.getElementById('winnerNumber').value.trim(),
+                    winner: document.getElementById('winnerName').value.trim(),
+                    instagram: document.getElementById('winnerInstagram').value.trim()
                 };
+
+                if (!winner.number || !winner.winner) {
+                    alert('Por favor, preencha o número e o nome do ganhador.');
+                    return;
+                }
+
                 await DataService.saveWinner(winner);
                 alert('Ganhador registrado com sucesso!');
                 e.target.reset();
@@ -747,6 +771,28 @@
             border-radius: 10px;
             margin-left: 5px;
             font-weight: 800;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .icon-dim {
+            opacity: 0.5;
+            width: 16px;
+            height: 16px;
+        }
+
+        #cloudStatus i {
+            width: 16px;
+            height: 16px;
         }
 
         /* Admin Mobile Support */

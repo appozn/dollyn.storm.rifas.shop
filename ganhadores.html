@@ -75,32 +75,60 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             // Wait for Firebase to initialize
-            if (!DataService.db) await new Promise(r => setTimeout(r, 1000));
+            if (!DataService.db && DataService.useCloud) await new Promise(r => setTimeout(r, 1000));
 
             const winners = await DataService.getLotteryData();
             const container = document.getElementById('winnersList');
 
-            if (winners && winners.length > 0) {
-                container.innerHTML = [...winners].reverse().map(w => `
-                    <div class="winner-card">
+            // Filter out empty winners (legacy or bugged data)
+            const validWinners = (winners || []).filter(w => w.winner && w.number);
+
+            if (validWinners.length > 0) {
+                container.innerHTML = [...validWinners].reverse().map(w => {
+                    // Fix date formatting (remove commas)
+                    const cleanDate = w.date ? w.date.split(',')[0].split(' ')[0] : 'Data N/A';
+                    const insta = w.instagram ? (w.instagram.startsWith('@') ? w.instagram : '@' + w.instagram) : '';
+
+                    return `
+                    <div class="winner-card glass">
                         <div class="winner-header flex align-center justify-between">
-                            <div class="winner-info">
-                                <span class="winner-name">${w.winner}</span>
-                                ${w.instagram ? `<span class="winner-phone" style="color:var(--accent-primary);">${w.instagram.startsWith('@') ? w.instagram : '@' + w.instagram}</span>` : ''}
+                            <div class="winner-user flex align-center gap-15">
+                                <div class="winner-avatar">
+                                    <i data-lucide="user"></i>
+                                </div>
+                                <div class="winner-details">
+                                    <span class="winner-name">${w.winner}</span>
+                                    ${insta ? `<span class="winner-insta">${insta}</span>` : ''}
+                                </div>
                             </div>
-                            <div class="winner-date">${w.date ? w.date.split(' ')[0] : ''}</div>
+                            <div class="winner-date-pill">
+                                <i data-lucide="calendar"></i>
+                                <span>${cleanDate}</span>
+                            </div>
                         </div>
-                        <div class="winner-body">
-                            <h3>Campanha: ${w.raffleName || 'Rifa'}</h3>
-                            <div class="win-stats">
-                                <div class="stat-item">
-                                    <span class="label">Número(s) de Cota(s)</span>
-                                    <span class="value highlight">${w.number}</span>
+                        
+                        <div class="winner-body-new">
+                            <div class="win-info-box">
+                                <span class="info-label">Campanha</span>
+                                <span class="info-value">${w.raffleName || 'Rifa Online'}</span>
+                            </div>
+                            <div class="win-number-box">
+                                <span class="info-label">Número Sorteado</span>
+                                <div class="number-badge">
+                                    <i data-lucide="award"></i>
+                                    <span>#${w.number}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                `).join('');
+                `}).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state text-center" style="padding:60px; border: 1px dashed var(--border-color); border-radius: 24px;">
+                        <i data-lucide="info" style="width:40px; height:40px; color:var(--text-dim); margin-bottom:15px;"></i>
+                        <p style="color:var(--text-dim);">Ainda não há ganhadores registrados.</p>
+                    </div>
+                `;
             }
             if (window.lucide) lucide.createIcons();
         });
@@ -141,58 +169,147 @@
         lucide.createIcons();
     </script>
     <style>
+        :root {
+            --glass-card: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
         .page-content {
             padding: 40px 0;
+            background: radial-gradient(circle at top right, rgba(167, 139, 250, 0.05), transparent 40%);
         }
 
         .winners-grid {
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            max-width: 600px;
+            gap: 24px;
+            max-width: 700px;
             margin: 0 auto;
         }
 
         .winner-card {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 25px;
+            border-radius: 24px;
+            padding: 30px;
             transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .winner-card.glass {
+            background: var(--glass-card);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
         }
 
         .winner-card:hover {
             border-color: var(--accent-primary);
-            box-shadow: var(--purple-glow);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), var(--purple-glow);
+            transform: translateY(-5px);
+        }
+
+        .winner-header {
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .winner-avatar {
+            width: 50px;
+            height: 50px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
         }
 
         .winner-name {
-            display: block;
-            font-weight: 800;
             font-size: 20px;
+            font-weight: 800;
             color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .winner-insta {
+            font-size: 14px;
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .winner-date-pill {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .winner-body-new {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .win-info-box {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .info-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            font-weight: 800;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .number-badge {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 10px 20px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--success);
+            font-weight: 900;
+            font-size: 20px;
+            margin-top: 5px;
+        }
+
+        .number-badge i {
+            width: 22px;
+            height: 22px;
         }
 
         @media (max-width: 768px) {
-            .section-header {
-                text-align: center;
-            }
-
             .winner-header {
                 flex-direction: column;
-                text-align: center;
-                gap: 15px;
+                align-items: flex-start;
+                gap: 20px;
             }
 
-            .win-stats {
-                flex-direction: column;
-                gap: 15px;
-                align-items: center;
-                text-align: center;
+            .winner-date-pill {
+                align-self: flex-start;
             }
 
-            .winner-body h3 {
-                text-align: center;
+            .winner-body-new {
+                grid-template-columns: 1fr;
             }
         }
     </style>
