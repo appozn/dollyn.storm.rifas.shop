@@ -12,9 +12,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/dataService.js"></script>
@@ -127,7 +126,7 @@
                 <div class="footer-social">
                     <h4>Siga-nos</h4>
                     <div class="social-icons">
-                        <a href="#">Instagram</a>
+                        <a href="https://www.instagram.com/dollyn.storm_skins/" target="_blank">Instagram</a>
                         <a href="#">WhatsApp</a>
                     </div>
                 </div>
@@ -267,8 +266,8 @@
             const greeting = document.querySelector('.user-greeting');
             if (greeting) greeting.textContent = `Olá, ${user.name.split(' ')[0]}`;
 
-            // Wait for Firebase to initialize if needed
-            if (!DataService.db) await new Promise(r => setTimeout(r, 1000));
+            // Aguarda o Supabase inicializar
+            if (!DataService.db) await DataService.init();
 
             const purchases = (await DataService.getPurchases()).filter(p => p.userPhone === user.phone);
             const totalTickets = purchases.reduce((sum, p) => sum + (p.numbers ? p.numbers.length : 0), 0);
@@ -280,13 +279,15 @@
                     <div class="raffle-ticket-card">
                         <div class="ticket-header flex justify-between">
                             <h3>${p.raffleName || 'Rifa de Skin'}</h3>
-                            <span class="status-pill ${p.status === 'Confirmado' ? 'active' : 'pending'}">${p.status === 'Confirmado' ? 'Participando' : 'Aguardando Aprovação'}</span>
+                            <span class="status-pill ${p.status === 'PAGAMENTO APROVADO' ? 'active' : 'pending'}">
+                                ${p.status === 'PAGAMENTO APROVADO' ? 'Participando' : 'Aguardando Aprovação'}
+                            </span>
                         </div>
-                        <div class="nums-grid" style="${p.status === 'Confirmado' ? '' : 'filter:blur(4px); pointer-events:none;'}">
-                            ${p.numbers ? p.numbers.map(n => `<span class="num-chip">#${n}</span>`).join('') : ''}
+                        <div class="nums-grid" style="${p.status === 'PAGAMENTO APROVADO' ? '' : 'filter:blur(4px); pointer-events:none;'}">
+                            ${p.numbers && p.numbers.length > 0 ? p.numbers.map(n => `<span class="num-chip">#${n}</span>`).join('') : '<span style="color:var(--text-dim);font-size:11px;">Aguardando aprovação...</span>'}
                         </div>
                         <div class="ticket-body">
-                            ${p.status === 'Confirmado'
+                            ${p.status === 'PAGAMENTO APROVADO'
                         ? `<p style="font-size:12px;color:var(--text-dim);">Compra realizada em ${p.date}</p>`
                         : `<p style="font-size:13px;color:var(--accent-primary);font-weight:600;margin-top:10px;">Aguardando o administrador confirmar seu pagamento PIX.</p>`}
                         </div>

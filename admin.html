@@ -12,9 +12,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/dataService.js"></script>
@@ -140,7 +139,8 @@
                             <thead>
                                 <tr>
                                     <th>Rifa</th>
-                                    <th>Usuário</th>
+                                    <th>Usuário / CPF</th>
+                                    <th>WhatsApp</th>
                                     <th>Valor</th>
                                     <th>Números</th>
                                     <th>Status</th>
@@ -317,21 +317,133 @@
                 this.tempWinner = null;
                 this.updateCloudStatus();
                 DataService.renderMenu();
+
+                // Solicitar permissão de notificação (Browser API)
+                if ("Notification" in window) {
+                    if (Notification.permission === "default") {
+                        console.log("Aguardando ação do usuário para pedir notificações.");
+                    }
+                }
+
+                // Sistema de Polling para Notificações (5 segundos)
+                this.lastPurchaseCount = -1; // Reset
+                setInterval(() => this.checkNewPurchases(), 5000);
+
+                window.addEventListener('hashchange', () => this.handleNavigation());
+                window.addEventListener('ds_init', () => {
+                    console.log("Evento ds_init recebido no Admin.");
+                    this.updateCloudStatus();
+                });
+
+                // Diagnóstico: Se em 10 segundos não tiver DB, avisar
+                setTimeout(() => {
+                    if (!DataService.db && DataService.useCloud) {
+                        console.warn("Supabase demorando muito para conectar...");
+                        this.updateCloudStatus();
+                    }
+                }, 10000);
+            },
+
+            async checkNewPurchases() {
+                // Só verifica se estiver logado ou na aba admin
+                const purchases = await DataService.getPurchases();
+                const pixGerados = purchases.filter(p => p.status === 'PIX GERADO');
+
+                // Se o contador subiu, houve nova venda
+                if (this.lastPurchaseCount !== -1 && pixGerados.length > this.lastPurchaseCount) {
+                    const latest = pixGerados[pixGerados.length - 1];
+                    this.showAdminNotification(
+                        `💰 Novo PIX Gerado!`,
+                        `${latest.userName} - R$ ${parseFloat(latest.amount).toFixed(2)}`
+                    );
+
+                    // Atualiza a vista se estiver no dashboard ou pendentes
+                    if (window.location.hash === '#dashboard' || window.location.hash === '#pendentes') {
+                        this.loadViewData(window.location.hash);
+                    }
+                }
+                this.lastPurchaseCount = pixGerados.length;
+            },
+
+            showAdminNotification(title, body) {
+                // 1. Notificação Nativa (Windows/Android/iOS via PWA)
+                if ("Notification" in window && Notification.permission === "granted") {
+                    try {
+                        new Notification(title, { body, icon: 'assets/logo.png' });
+                    } catch (e) {
+                        console.error("Erro ao disparar notificação nativa:", e);
+                    }
+                }
+
+                // 2. Notificação Visual (In-App Toast) - Sempre funciona se a aba estiver aberta
+                const toast = document.createElement('div');
+                toast.className = 'glass';
+                toast.style = `position:fixed; top:20px; right:20px; z-index:9999; padding:20px; border-left:4px solid var(--accent-primary); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,1); background:var(--bg-secondary); border:1px solid var(--border-color); cursor:pointer; min-width:250px; transform:translateX(120%); transition:transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);`;
+                toast.innerHTML = `
+                    <div class="flex align-center gap-10">
+                        <i data-lucide="bell" style="color:var(--accent-primary)"></i>
+                        <div>
+                            <h4 style="margin:0; font-size:14px;">${title}</h4>
+                            <p style="margin:5px 0 0; font-size:12px; color:var(--text-dim);">${body}</p>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(toast);
+                setTimeout(() => { toast.style.transform = 'translateX(0)'; if (window.lucide) lucide.createIcons(); }, 100);
+
+                // Redirecionar ao clicar
+                toast.onclick = () => { window.location.hash = '#pendentes'; toast.remove(); };
+
+                // Som de alerta
+                try {
+                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                    audio.play().catch(e => console.log("Som bloqueado pelo navegador"));
+                } catch (e) { }
+
+                // Auto-remove
+                setTimeout(() => {
+                    toast.style.transform = 'translateX(120%)';
+                    setTimeout(() => toast.remove(), 500);
+                }, 10000);
             },
 
             updateCloudStatus() {
                 const statusDiv = document.getElementById('cloudStatus');
                 if (!statusDiv) return;
-                if (DataService.useCloud && DataService.db) {
+
+                if (DataService.db) {
                     statusDiv.innerHTML = `<i data-lucide="cloud" class="icon-purple"></i> <span style="color:var(--accent-primary)">Nuvem Ativa ☁️</span>`;
+                } else if (DataService.initializing) {
+                    statusDiv.innerHTML = `<i data-lucide="loader" class="icon-dim animate-spin"></i> <span>Conectando ao Banco...</span>`;
                 } else {
-                    statusDiv.innerHTML = `<i data-lucide="cloud-off" class="icon-dim"></i> <span>Modo Local</span>`;
+                    statusDiv.innerHTML = `<i data-lucide="cloud-off" class="icon-dim"></i> <span>Modo Local (Banco Desconectado)</span>`;
+                    // Tentativa de feedback se o SDK não estiver por aqui
+                    if (!window.supabase) {
+                        statusDiv.innerHTML += ` <small style="display:block;color:#ff4d4d;font-size:10px;">SDK do Supabase não encontrado!</small>`;
+                    }
                 }
                 if (window.lucide) lucide.createIcons();
             },
 
             bindEvents() {
                 window.addEventListener('hashchange', () => this.handleNavigation());
+
+                // Botão de Notificações
+                document.getElementById('enableNotifications')?.addEventListener('click', () => {
+                    if ("Notification" in window) {
+                        Notification.requestPermission().then(permission => {
+                            if (permission === "granted") {
+                                alert("Notificações ativadas com sucesso!");
+                                document.getElementById('enableNotifications').style.display = 'none';
+                            } else {
+                                alert("As notificações foram bloqueadas. Você precisa liberar no cadeado do navegador.");
+                            }
+                        });
+                    } else {
+                        alert("Este navegador não suporta notificações.");
+                    }
+                });
+
                 document.getElementById('raffleForm')?.addEventListener('submit', (e) => {
                     this.handleSaveRaffle(e);
                 });
@@ -381,7 +493,7 @@
             async updateDashboard() {
                 const stats = await DataService.getStats();
                 const purchases = await DataService.getPurchases();
-                const pending = purchases.filter(p => p.status === 'Pendente').length;
+                const pending = purchases.filter(p => p.status === 'PIX GERADO').length;
 
                 document.getElementById('statRevenue').textContent = 'R$ ' + stats.totalRevenue;
                 document.getElementById('statPurchases').textContent = stats.totalPurchases;
@@ -396,16 +508,19 @@
             },
 
             async renderPendingPurchases() {
-                const purchases = (await DataService.getPurchases()).filter(p => p.status === 'Pendente');
+                const purchases = (await DataService.getPurchases()).filter(p => p.status === 'PIX GERADO');
                 const container = document.getElementById('pendingTableBody');
                 container.innerHTML = purchases.map(p => `
                     <tr>
                         <td>${p.raffleName}</td>
-                        <td>${p.userName}</td>
+                        <td style="line-height:1.4;">
+                            <strong>${p.userName}</strong><br>
+                            <small style="color:var(--text-dim); font-size:10px;">CPF: ${p.userCpf || 'N/A'}</small>
+                        </td>
                         <td>${p.userPhone}</td>
                         <td>R$ ${parseFloat(p.amount).toFixed(2)}</td>
                         <td>
-                            <button class="premium-btn sm" onclick="AdminPanel.confirmPayment('${p.id}')">Aprovar</button>
+                            <button class="premium-btn sm" onclick="AdminPanel.confirmPayment('${p.id}')">Aprovar PIX</button>
                         </td>
                     </tr>
                 `).join('');
@@ -415,11 +530,11 @@
             },
 
             async confirmPayment(id) {
-                if (confirm('Deseja realmente aprovar este pagamento? Os números serão liberados para o usuário.')) {
+                if (confirm('Deseja realmente aprovar este pagamento? Os números serão gerados agora para o usuário.')) {
                     await DataService.confirmPurchase(id);
                     await this.renderPendingPurchases();
                     await this.updateDashboard();
-                    alert('Pagamento aprovado com sucesso!');
+                    alert('Pagamento aprovado! Números enviados ao cliente.');
                 }
             },
 
@@ -450,7 +565,13 @@
 
             async handleSaveRaffle(e) {
                 e.preventDefault();
-                const id = document.getElementById('raffleId').value || 'r-' + Date.now();
+                const idInput = document.getElementById('raffleId');
+                const id = idInput.value || 'r-' + Date.now();
+
+                // Buscar dados existentes se for edição para preservar a data original
+                const raffles = await DataService.getRafflesList();
+                const existing = raffles.find(r => r.id === id);
+
                 const raffle = {
                     id,
                     name: document.getElementById('raffleName').value,
@@ -458,17 +579,20 @@
                     imageUrl: document.getElementById('raffleImg').value,
                     price: parseFloat(document.getElementById('rafflePrice').value),
                     minQty: parseInt(document.getElementById('raffleMinQty').value),
-                    status: document.getElementById('raffleStatus').value
+                    status: document.getElementById('raffleStatus').value,
+                    createdAt: existing ? existing.createdAt : new Date().toISOString()
                 };
 
                 try {
                     await DataService.saveRaffle(raffle);
-                    alert('Rifa salva com sucesso!');
+                    alert('Rifa salva com sucesso e disponível no site.');
                     e.target.reset();
-                    document.getElementById('raffleId').value = '';
+                    idInput.value = '';
                     await this.renderRafflesList();
                 } catch (err) {
-                    alert(err.message);
+                    console.error("Erro ao salvar rifa:", err);
+                    alert('ERRO: Não foi possível salvar a rifa. Verifique sua conexão. Detalhes: ' + err.message);
+                    // Não limpa o formulário se houver erro para permitir correção
                 }
             },
 

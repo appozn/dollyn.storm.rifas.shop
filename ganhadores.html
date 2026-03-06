@@ -74,8 +74,8 @@
     <script src="js/main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            // Wait for Firebase to initialize
-            if (!DataService.db && DataService.useCloud) await new Promise(r => setTimeout(r, 1000));
+            // Aguarda o Supabase inicializar
+            if (!DataService.db && DataService.useCloud) await DataService.init();
 
             const winners = await DataService.getLotteryData();
             const container = document.getElementById('winnersList');

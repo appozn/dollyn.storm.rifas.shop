@@ -88,11 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Dynamic Campaign Rendering
-    const renderCampaignCards = () => {
+    const renderCampaignCards = async () => {
         const grid = document.getElementById('campaignGrid');
         if (!grid) return;
 
-        const raffles = DataService.getRafflesList().filter(r => r.status === 'Ativa');
+        const raffles = (await DataService.getRafflesList())
+            .filter(r => r.status === 'Ativa')
+            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
         grid.innerHTML = raffles.map(r => `
             <div class="raffle-card" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}">
                 <div class="card-image">
@@ -102,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-body">
                     <div class="card-meta flex justify-between align-center">
                         <span class="product-type">Rifa de Skin CS</span>
-                        <span class="unit-price-tag">R$ ${parseFloat(r.price).toFixed(2).replace('.', ',')} / número</span>
+                        <span class="unit-price-tag">Valor por número: R$ ${parseFloat(r.price).toFixed(2).replace('.', ',')}</span>
                     </div>
                     <h3>${r.name}</h3>
                     <p class="card-subtitle">${r.description}</p>
@@ -126,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="label">Total a pagar:</span>
                             <span class="price" id="total-${r.id}">R$ ${(r.minQty * r.price).toFixed(2).replace('.', ',')}</span>
                         </div>
-                        <button class="premium-btn" onclick="MainApp.buyRaffle('${r.id}')">Comprar agora</button>
+                        <button class="premium-btn" onclick="MainApp.buyRaffle('${r.id}')">Participar</button>
                     </div>
                 </div>
             </div>
@@ -136,11 +139,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderCampaignCards();
 
-    // Listen for changes in localStorage from other tabs (like admin)
+    // Listen for changes in localStorage (sync across tabs)
     window.addEventListener('storage', (e) => {
-        if (e.key === DataService.KEYS.RAFFLES_LIST) {
-            renderCampaignCards();
-        }
+        renderCampaignCards();
+        if (typeof DataService !== 'undefined') DataService.renderMenu();
     });
 
     // Globals for dynamic interaction
@@ -197,6 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--text-dim);font-weight:600;">WHATSAPP (TELEFONE)</label>
                         <input type="text" id="userPhone" placeholder="(00) 00000-0000" style="width:100%;padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;color:#fff;outline:none;">
                     </div>
+
+                    <!-- Stage 1: Terms Checkbox -->
+                    <div style="text-align:left; margin-bottom:20px; font-size:13px; color:var(--text-muted); display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" id="acceptTerms" style="width:18px; height:18px; cursor:pointer;">
+                        <label for="acceptTerms">Li e aceito os <a href="#" id="viewTermsLink" style="color:var(--accent-primary); text-decoration:underline;">termos da plataforma</a>.</label>
+                    </div>
+
                     <div style="display: flex; justify-content: center; width: 100%;">
                         <button class="premium-btn full" id="proceedToPayBtn" style="padding:16px;">Gerar Pagamento PIX</button>
                     </div>
@@ -208,10 +217,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('closeIdModal').addEventListener('click', () => document.getElementById('idModal').remove());
 
+        // Modal de Termos
+        document.getElementById('viewTermsLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            const termsModal = document.getElementById('termsModal');
+            if (termsModal) termsModal.style.display = 'flex';
+        });
+
         document.getElementById('proceedToPayBtn').addEventListener('click', () => {
             const name = document.getElementById('userName').value;
             const cpf = document.getElementById('userCpf').value;
             const phone = document.getElementById('userPhone').value;
+            const accepted = document.getElementById('acceptTerms').checked;
+
+            if (!accepted) {
+                alert('Você precisa aceitar os termos da plataforma para continuar.');
+                return;
+            }
 
             if (name.length < 3) {
                 alert('Por favor, informe seu nome completo.');
@@ -268,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function processPurchase(amount, qty, name, phone, cpf) {
         try {
-            // ETAPA 1, 2, 3 e 4: Detectar, Gerar, Salvar e Vincular
+            // ETAPA 1, 2, 3 e 4: Gerar, Salvar (status Pendente - aguardando confirmação admin)
             const purchase = DataService.completePurchase({
                 raffleId: window.currentRaffleId || 'test-raffle',
                 raffleName: window.currentRaffleName || 'Produto Teste',
@@ -279,30 +301,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 qty: qty
             });
 
-            // ETAPA 5: Confirmação Visual ao Usuário
+            // Gerar mensagem WhatsApp com os números
+            const numbersText = purchase.numbers.map(n => '#' + n).join(', ');
+            const whatsappMsg = encodeURIComponent(
+                `🎉 Olá ${name}! Seu pagamento foi registrado na Dollyn Storm Rifas!\n\n` +
+                `📋 Rifa: ${purchase.raffleName}\n` +
+                `🔢 Seus números: ${numbersText}\n\n` +
+                `⏳ Aguarde a confirmação do pagamento pelo administrador para validar sua participação.\n` +
+                `Boa sorte! 🍀`
+            );
+            const cleanPhone = phone.replace(/\D/g, '');
+            const whatsappUrl = `https://wa.me/55${cleanPhone}?text=${whatsappMsg}`;
+
+            // ETAPA 5: Confirmação Visual — compra PENDENTE até admin confirmar
             const modal = document.querySelector('.pix-modal');
             modal.innerHTML = `
                 <div class="success-icon" style="margin-bottom:20px;">
-                    <i data-lucide="check-circle" style="width:64px;height:64px;color:var(--accent-primary)"></i>
+                    <i data-lucide="clock" style="width:64px;height:64px;color:#f59e0b"></i>
                 </div>
-                <h3 style="font-size:24px;margin-bottom:10px;">Pagamento Confirmado!</h3>
-                <p style="color:var(--text-muted);margin-bottom:20px;">Seus números já estão disponíveis em <strong>Meus Números</strong>.</p>
-                
-                <div class="numbers-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:180px;overflow-y:auto;background:rgba(0,0,0,0.2);padding:20px;border-radius:15px;margin-bottom:25px;border:1px solid var(--border-color);">
-                    ${purchase.numbers.map(n => `<span class="num-chip" style="margin:0;font-size:14px;">#${n}</span>`).join('')}
+                <h3 style="font-size:22px;margin-bottom:10px;color:#f59e0b;">Pagamento Enviado!</h3>
+                <p style="color:var(--text-muted);margin-bottom:5px;font-size:14px;">Seus números foram reservados. <strong>O acesso será liberado após a confirmação do pagamento pelo administrador.</strong></p>
+
+                <div class="numbers-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.2);padding:16px;border-radius:15px;margin:20px 0;border:1px solid var(--border-color);">
+                    ${purchase.numbers.map(n => `<span class="num-chip" style="margin:0;font-size:13px;opacity:0.6;">#${n}</span>`).join('')}
                 </div>
 
-                <p style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">Você será redirecionado em instantes...</p>
-                
-                <button class="premium-btn full" onclick="location.href='dashboard.html'" style="padding:18px;">Ver Meus Números Agora</button>
+                <p style="font-size:12px;color:var(--text-dim);margin-bottom:20px;">📲 Envie seus números pelo WhatsApp para guardar o comprovante:</p>
+
+                <a href="${whatsappUrl}" target="_blank" class="premium-btn full" style="padding:16px;background:linear-gradient(135deg,#25d366,#128c7e);display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;">
+                    <i data-lucide="smartphone" style="width:18px;height:18px;"></i> Enviar Números pelo WhatsApp
+                </a>
+                <button class="close-modal" onclick="document.getElementById('pixModal').remove()" style="margin-top:5px;border:none;font-size:13px;text-decoration:underline;">Fechar</button>
             `;
 
             if (window.lucide) lucide.createIcons();
-
-            // Auto-redirect after 5 seconds per ETAPA 5
-            setTimeout(() => {
-                window.location.href = 'dashboard.html';
-            }, 5000);
 
         } catch (error) {
             // ETAPA 6: Travas de Segurança (Anti-Erro)
