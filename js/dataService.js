@@ -40,9 +40,17 @@ const DataService = {
             if (this.useCloud && window.supabase) {
                 try {
                     this.db = supabase.createClient(SB_URL, SB_KEY);
-                    console.log("Supabase Conectado ✅");
+                    // Testar conexão imediatamente
+                    const { error } = await this.db.from('raffles').select('id').limit(1);
+                    if (error) {
+                        console.error("Erro de conexão com tabelas:", error.message);
+                        this.db = null; // Reset if tables are missing
+                    } else {
+                        console.log("Supabase Conectado e Tabelas Verificadas ✅");
+                    }
                 } catch (err) {
                     console.error("ERRO CRÍTICO NO SUPABASE:", err);
+                    this.db = null;
                 }
             } else if (this.useCloud) {
                 console.error("Supabase SDK não carregado!");
@@ -125,9 +133,16 @@ const DataService = {
     async getPurchases() {
         await this.init();
         if (this.useCloud && this.db) {
-            const { data, error } = await this.db.from('purchases').select('*');
-            if (!error && data) return data;
-            if (error) console.warn("Erro ao buscar compras do Supabase:", error);
+            try {
+                const { data, error } = await this.db.from('purchases').select('*').order('id', { ascending: false });
+                if (!error && data) {
+                    localStorage.setItem(this.KEYS.PURCHASES, JSON.stringify(data));
+                    return data;
+                }
+                if (error) console.warn("Supabase Purchases Error:", error.message);
+            } catch (err) {
+                console.error("Critical GetPurchases Error:", err);
+            }
         }
         return JSON.parse(localStorage.getItem(this.KEYS.PURCHASES) || '[]');
     },
@@ -200,28 +215,31 @@ const DataService = {
         // Garantir campos obrigatórios
         if (!raffle.createdAt) raffle.createdAt = new Date().toISOString();
 
-        // 1. Sincronizar Nuvem (Real Saving)
-        if (this.useCloud && this.db) {
+        // 1. Sincronizar Nuvem (Obrigatório para Admin)
+        if (this.useCloud) {
+            if (!this.db) {
+                throw new Error("Sincronização com a nuvem falhou. A rifa NÃO foi salva para os outros dispositivos. Verifique se as tabelas foram criadas no Supabase.");
+            }
             try {
                 const { error } = await this.db.from('raffles').upsert({
                     id: raffle.id,
                     name: raffle.name,
                     description: raffle.description,
-                    imageUrl: raffle.imageUrl, // Mapped to quoted "imageUrl"
+                    imageUrl: raffle.imageUrl,
                     price: parseFloat(raffle.price),
-                    minQty: parseInt(raffle.minQty), // Mapped to quoted "minQty"
+                    minQty: parseInt(raffle.minQty),
                     status: raffle.status,
-                    createdAt: raffle.createdAt // Mapped to quoted "createdAt"
+                    createdAt: raffle.createdAt
                 });
                 if (error) throw error;
                 console.log("Rifa salva no Supabase com sucesso.");
             } catch (err) {
                 console.error("Erro ao salvar no Supabase:", err);
-                throw new Error("Falha ao salvar no banco (Nuvem): " + (err.message || JSON.stringify(err)));
+                throw new Error("Falha ao salvar na Nuvem: " + (err.message || "Tabela 'raffles' não encontrada."));
             }
         }
 
-        // 2. Atualizar Local
+        // 2. Atualizar Local (apenas após sucesso da nuvem ou se nuvem desativada propositalmente)
         let raffles = JSON.parse(localStorage.getItem(this.KEYS.RAFFLES_LIST) || '[]');
         raffles = raffles.filter(r => r.id !== raffle.id);
         raffles.push(raffle);
@@ -233,18 +251,18 @@ const DataService = {
 
     async deleteRaffle(id) {
         await this.init();
-        if (this.useCloud && this.db) {
+        if (this.useCloud) {
+            if (!this.db) throw new Error("Não é possível excluir sem conexão com a nuvem.");
             try {
                 const { error } = await this.db.from('raffles').delete().eq('id', id);
                 if (error) throw error;
                 console.log("Rifa excluída do Supabase.");
             } catch (err) {
                 console.error("Erro ao excluir do Supabase:", err);
-                throw new Error("Falha ao excluir no banco (Nuvem): " + err.message);
+                throw new Error("Falha ao excluir na Nuvem: " + err.message);
             }
         }
 
-        // Sempre atualizar local para consistência
         let raffles = JSON.parse(localStorage.getItem(this.KEYS.RAFFLES_LIST) || '[]');
         raffles = raffles.filter(r => r.id !== id);
         localStorage.setItem(this.KEYS.RAFFLES_LIST, JSON.stringify(raffles));
