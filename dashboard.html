@@ -256,7 +256,7 @@
         });
     </script>
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
+        async function loadDashboardData() {
             const user = DataService.getCurrentUser();
             if (!user) {
                 window.location.href = 'login.html';
@@ -267,33 +267,47 @@
             if (greeting) greeting.textContent = `Olá, ${user.name.split(' ')[0]}`;
 
             // Aguarda o Supabase inicializar
-            if (!DataService.db) await DataService.init();
+            if (!DataService.initPromise) await DataService.init();
 
-            const purchases = (await DataService.getPurchases()).filter(p => p.userPhone === user.phone);
+            const cleanUserPhone = user.phone.replace(/\D/g, '');
+            const allPurchases = await DataService.getPurchases();
+            const purchases = allPurchases.filter(p => (p.userPhone || '').replace(/\D/g, '') === cleanUserPhone);
             const totalTickets = purchases.reduce((sum, p) => sum + (p.numbers ? p.numbers.length : 0), 0);
-            document.getElementById('userTotalTickets').textContent = totalTickets;
 
-            if (totalTickets > 0) {
-                const grid = document.getElementById('userTicketsGrid');
+            const ticketsDisplay = document.getElementById('userTotalTickets');
+            if (ticketsDisplay) ticketsDisplay.textContent = totalTickets;
+
+            const grid = document.getElementById('userTicketsGrid');
+            if (!grid) return;
+
+            if (totalTickets > 0 || purchases.length > 0) {
                 grid.innerHTML = purchases.map(p => `
                     <div class="raffle-ticket-card">
                         <div class="ticket-header flex justify-between">
                             <h3>${p.raffleName || 'Rifa de Skin'}</h3>
-                            <span class="status-pill ${p.status === 'PAGAMENTO APROVADO' ? 'active' : 'pending'}">
-                                ${p.status === 'PAGAMENTO APROVADO' ? 'Participando' : 'Aguardando Aprovação'}
+                            <span class="status-pill ${(p.status === 'Aprovado' || p.status === 'Confirmado' || p.status === 'PAGAMENTO APROVADO') ? 'active' : 'pending'}">
+                                ${(p.status === 'Aprovado' || p.status === 'Confirmado' || p.status === 'PAGAMENTO APROVADO') ? 'Participando' : 'Aguardando Aprovação'}
                             </span>
                         </div>
-                        <div class="nums-grid" style="${p.status === 'PAGAMENTO APROVADO' ? '' : 'filter:blur(4px); pointer-events:none;'}">
+                        <div class="nums-grid" style="${(p.status === 'Aprovado' || p.status === 'Confirmado' || p.status === 'PAGAMENTO APROVADO') ? '' : 'filter:blur(4px); pointer-events:none;'}">
                             ${p.numbers && p.numbers.length > 0 ? p.numbers.map(n => `<span class="num-chip">#${n}</span>`).join('') : '<span style="color:var(--text-dim);font-size:11px;">Aguardando aprovação...</span>'}
                         </div>
                         <div class="ticket-body">
-                            ${p.status === 'PAGAMENTO APROVADO'
+                            ${(p.status === 'Aprovado' || p.status === 'Confirmado' || p.status === 'PAGAMENTO APROVADO')
                         ? `<p style="font-size:12px;color:var(--text-dim);">Compra realizada em ${p.date}</p>`
                         : `<p style="font-size:13px;color:var(--accent-primary);font-weight:600;margin-top:10px;">Aguardando o administrador confirmar seu pagamento PIX.</p>`}
                         </div>
                     </div>
                 `).join('');
+            } else {
+                grid.innerHTML = '<div class="empty-state">Nenhum título encontrado.</div>';
             }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData();
+            // Polling para atualizar quando o admin aprovar
+            setInterval(loadDashboardData, 10000);
         });
 
         document.querySelectorAll('.tab-btn').forEach(btn => {

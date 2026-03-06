@@ -140,11 +140,11 @@
                                 <tr>
                                     <th>Rifa</th>
                                     <th>Usuário / CPF</th>
-                                    <th>WhatsApp</th>
                                     <th>Valor</th>
-                                    <th>Números</th>
                                     <th>Status</th>
+                                    <th>Números</th>
                                     <th>Data</th>
+                                    <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="purchasesTableBody"></tbody>
@@ -532,10 +532,15 @@
 
             async confirmPayment(id) {
                 if (confirm('Deseja realmente aprovar este pagamento? Os números serão gerados agora para o usuário.')) {
-                    await DataService.confirmPurchase(id);
-                    await this.renderPendingPurchases();
-                    await this.updateDashboard();
-                    alert('Pagamento aprovado! Números enviados ao cliente.');
+                    try {
+                        await DataService.confirmPurchase(id);
+                        await this.renderPendingPurchases();
+                        await this.updateDashboard();
+                        alert('Pagamento aprovado! O botão para enviar os números via WhatsApp está disponível na lista de compras.');
+                    } catch (err) {
+                        console.error("Erro ao aprovar PIX:", err);
+                        alert(err.message);
+                    }
                 }
             },
 
@@ -729,13 +734,49 @@
                 container.innerHTML = purchases.sort((a, b) => new Date(b.date) - new Date(a.date)).map(p => `
                     <tr>
                         <td data-label="Rifa">${p.raffleName}</td>
-                        <td data-label="Usuário">${p.userName}</td>
-                        <td data-label="Valor">R$ ${parseFloat(p.amount || p.value || 0).toFixed(2)}</td>
+                        <td data-label="Usuário/CPF">
+                            <strong>${p.userName}</strong><br>
+                            <small style="color:var(--text-dim);font-size:10px;">${p.userCpf || 'N/A'}</small>
+                        </td>
+                        <td data-label="Valor">R$ ${parseFloat(p.amount || 0).toFixed(2).replace('.', ',')}</td>
+                        <td data-label="Status">
+                            <span class="status-pill ${(p.status === 'Aprovado' || p.status === 'Confirmado' || p.status === 'PAGAMENTO APROVADO') ? 'active' : 'pending'}">
+                                ${p.status || 'Pendente'}
+                            </span>
+                        </td>
                         <td data-label="Números">${p.numbers ? p.numbers.length : 0}</td>
-                        <td data-label="Status"><span class="status-pill ${p.status === 'Confirmado' ? 'active' : 'pending'}">${p.status || 'Pendente'}</span></td>
                         <td data-label="Data">${p.date ? p.date.split(' ')[0] : '-'}</td>
+                        <td data-label="Ações">
+                            ${(p.status === 'Aprovado' || p.status === 'Confirmado' || p.status === 'PAGAMENTO APROVADO') ? `
+                                <button class="premium-btn sm" style="background:#25d366; border-color:#128c7e; font-size: 10px; padding: 5px 10px;" onclick="AdminPanel.sendWhatsApp('${p.id}')">
+                                    ENVIAR NÚMEROS PELO WHATSAPP
+                                </button>
+                            ` : '-'}
+                        </td>
                     </tr>
                 `).join('');
+                if (window.lucide) lucide.createIcons();
+            },
+
+            async sendWhatsApp(purchaseId) {
+                const purchases = await DataService.getPurchases();
+                const p = purchases.find(item => item.id === purchaseId);
+                if (!p) return alert("Venda não encontrada.");
+
+                const phone = (p.userPhone || '').replace(/\D/g, '');
+                if (!phone) return alert("Telefone não encontrado.");
+
+                const message = `Olá, seu pagamento foi aprovado com sucesso!
+
+Rifa: ${p.raffleName}
+
+Seus números são:
+${p.numbers ? p.numbers.join(', ') : 'Aguardando entrega'}
+
+Boa sorte e obrigado por participar!`;
+
+                const url = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+                window.open(url, '_blank');
             },
 
             async renderUsers() {

@@ -323,6 +323,7 @@ const DataService = {
             amount: data.amount,
             qty: data.qty,
             numbers: [], // Vazio até aprovação
+            attempts: 0, // Campo para limite de aprovações
             date: new Date().toLocaleString('pt-BR'),
             status: 'PIX GERADO'
         };
@@ -339,6 +340,7 @@ const DataService = {
                     amount: parseFloat(newPurchase.amount),
                     qty: parseInt(newPurchase.qty),
                     numbers: newPurchase.numbers,
+                    attempts: newPurchase.attempts,
                     date: newPurchase.date,
                     status: newPurchase.status
                 });
@@ -362,36 +364,59 @@ const DataService = {
 
     async confirmPurchase(purchaseId) {
         await this.init();
+        console.log("Confirmando compra:", purchaseId);
 
         let targetPurchase = null;
-        let purchases = [];
+        let purchases = await this.getPurchases();
 
         if (this.useCloud && this.db) {
             const { data, error } = await this.db.from('purchases').select('*').eq('id', purchaseId).single();
-            if (!error) targetPurchase = data;
+            if (error) {
+                console.error("Erro ao buscar venda para confirmar:", error);
+                throw new Error("Não foi possível encontrar a venda no banco de dados.");
+            }
+            targetPurchase = data;
         } else {
-            purchases = await this.getPurchases();
             targetPurchase = purchases.find(p => p.id === purchaseId);
         }
 
         if (!targetPurchase) throw new Error("Venda não encontrada.");
 
+        // TRAVA DE SEGURANÇA: Limite de 2 aprovações
+        const attempts = (targetPurchase.attempts || 0);
+        if (attempts >= 2) {
+            throw new Error("Limite de tentativas atingido. Volte amanhã ou clique em meus números para ver se chegou ou olhar o whatsapp.");
+        }
+
         // Gerar números apenas na aprovação
         const numbers = await this.generateUniqueNumbers(targetPurchase.raffleId, targetPurchase.qty);
+        console.log("Números gerados:", numbers);
+
+        const newAttempts = attempts + 1;
 
         if (this.useCloud && this.db) {
-            await this.db.from('purchases').update({
-                status: 'PAGAMENTO APROVADO',
-                numbers: numbers
+            const { error } = await this.db.from('purchases').update({
+                status: 'Aprovado',
+                numbers: numbers,
+                attempts: newAttempts
             }).eq('id', purchaseId);
-        } else {
-            const idx = purchases.findIndex(p => p.id === purchaseId);
-            if (idx !== -1) {
-                purchases[idx].status = 'PAGAMENTO APROVADO';
-                purchases[idx].numbers = numbers;
-                localStorage.setItem(this.KEYS.PURCHASES, JSON.stringify(purchases));
+
+            if (error) {
+                console.error("Erro ao atualizar status no Supabase:", error);
+                throw new Error("Falha ao entregar números na nuvem: " + error.message);
             }
+            console.log("Status atualizado na nuvem com sucesso.");
         }
+
+        // SEMPRE atualizar local para refletir imediatamente na UI do admin
+        const idx = purchases.findIndex(p => p.id === purchaseId);
+        if (idx !== -1) {
+            purchases[idx].status = 'Aprovado';
+            purchases[idx].numbers = numbers;
+            purchases[idx].attempts = newAttempts;
+            localStorage.setItem(this.KEYS.PURCHASES, JSON.stringify(purchases));
+        }
+
         window.dispatchEvent(new Event('storage'));
         return true;
     },
@@ -399,7 +424,7 @@ const DataService = {
     async getStats() {
         const purchases = await this.getPurchases();
         // Apenas contas confirmadas ou com PIX gerado (que o admin vê como venda potencial)
-        const validPurchases = purchases.filter(p => ['PIX GERADO', 'PAGAMENTO APROVADO'].includes(p.status));
+        const validPurchases = purchases.filter(p => ['PIX GERADO', 'Aprovado', 'Confirmado'].includes(p.status));
         const totalNumbers = validPurchases.reduce((sum, p) => sum + (p.numbers ? p.numbers.length : 0), 0);
         const totalRevenue = validPurchases.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
