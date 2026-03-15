@@ -20,6 +20,14 @@
 </head>
 
 <body class="admin-body">
+    <!-- Security Check: Redirect non-admins immediately -->
+    <script>
+        // Use DataService to check if the user is truly an admin
+        if (typeof DataService !== 'undefined' && !DataService.isAdmin()) {
+            window.location.replace('index.html');
+        }
+    </script>
+
     <!-- Simple Admin Auth Gate -->
     <div id="adminAuth"
         style="position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg-primary);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
@@ -47,8 +55,19 @@
     </div>
 
     <div class="admin-layout flex" id="adminContent" style="display:none;">
+        <!-- Mobile Admin Header -->
+        <header class="mobile-admin-header">
+            <img src="assets/logo.png" alt="Admin Logo" class="admin-logo-img">
+            <button id="adminMobileMenuBtn" aria-label="Abrir Menu">
+                <i data-lucide="menu"></i>
+            </button>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div id="adminOverlay" class="admin-overlay"></div>
+
         <!-- Admin Sidebar -->
-        <aside class="admin-sidebar">
+        <aside class="admin-sidebar" id="adminSidebar">
             <div class="admin-logo">
                 <img src="assets/logo.png" alt="Admin Logo" class="admin-logo-img">
             </div>
@@ -66,8 +85,7 @@
                 </ul>
             </nav>
             <div class="admin-footer">
-                <a href="index.html" class="back-site"
-                    style="color:var(--text-dim);text-decoration:none;font-size:14px;">Ir para o site</a>
+                <a href="index.html" class="back-site">Ir para o site</a>
             </div>
         </aside>
 
@@ -332,6 +350,30 @@
                 this.tempWinner = null;
                 this.updateCloudStatus();
                 DataService.renderMenu();
+
+                // Sidebar toggle logic for mobile
+                const menuBtn = document.getElementById('adminMobileMenuBtn');
+                const adminSidebar = document.getElementById('adminSidebar');
+                const adminOverlay = document.getElementById('adminOverlay');
+
+                if (menuBtn && adminSidebar && adminOverlay) {
+                    const toggleSidebar = (show) => {
+                        adminSidebar.classList.toggle('open', show);
+                        adminOverlay.classList.toggle('active', show);
+                    };
+
+                    menuBtn.onclick = () => {
+                        const isOpen = adminSidebar.classList.contains('open');
+                        toggleSidebar(!isOpen);
+                    };
+
+                    adminOverlay.onclick = () => toggleSidebar(false);
+
+                    // Close on link click
+                    adminSidebar.querySelectorAll('a').forEach(link => {
+                        link.onclick = () => toggleSidebar(false);
+                    });
+                }
 
                 // Solicitar permissão de notificação (Browser API)
                 if ("Notification" in window) {

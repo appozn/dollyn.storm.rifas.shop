@@ -509,7 +509,6 @@ const DataService = {
     // --- UI Rendering ---
     lastRenderedState: null,
     renderMenu() {
-        // Debounce/Throttle check: evita renderizar mais de uma vez por frame
         if (this._rendering) return;
         this._rendering = true;
 
@@ -518,7 +517,6 @@ const DataService = {
             const user = this.getCurrentUser();
             const stateKey = `${isAdmin}-${user?.email || 'none'}`;
 
-            // Evita re-renderizar se nada mudou
             if (this.lastRenderedState === stateKey) {
                 this._rendering = false;
                 return;
@@ -527,54 +525,75 @@ const DataService = {
             const desktopNav = document.querySelector('.desktop-nav ul');
             const sidebarNav = document.querySelector('.sidebar-nav ul');
             const navActions = document.getElementById('navActions');
-            const bottomNavContainer = document.querySelector('.mobile-bottom-nav');
+            
+            // Clean up existing mobile navs to prevent duplicates
+            document.querySelectorAll('.mobile-bottom-nav').forEach(el => el.remove());
 
-            if (!bottomNavContainer && !isAdmin && !document.querySelector('.mobile-bottom-nav')) {
-                const bottomNav = document.createElement('div');
-                bottomNav.className = 'mobile-bottom-nav';
-                document.body.appendChild(bottomNav);
+            const isAdminPage = window.location.pathname.includes('admin.html');
+            const isLoginPage = window.location.pathname.includes('login.html');
+
+            // Check if we are on a page that should have a navbar
+            if (!document.body || isAdminPage || isLoginPage) {
+                this._rendering = false;
+                return;
             }
 
+            // Create new floating pill navbar
+            const bottomNav = document.createElement('nav');
+            bottomNav.className = 'mobile-bottom-nav';
+            
+            const isHome = window.location.pathname.includes('index.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/');
+            const isDashboard = window.location.pathname.includes('dashboard.html');
+            const isTerms = window.location.pathname.includes('termos-de-uso.html');
+            const isWinners = window.location.pathname.includes('ganhadores.html');
+
             const navItems = [
-                { label: 'Início', href: 'index.html', icon: 'home' },
-                { label: 'Campanhas', href: 'index.html#campanhas', icon: 'crosshair' },
-                { label: 'Ganhadores', href: 'ganhadores.html', icon: 'trophy' },
-                { label: 'Minhas Cotas', href: 'dashboard.html', icon: 'user' },
-                { label: 'Sobre Nós', href: 'sobre-nos.html', icon: 'info' },
-                { label: 'Termos de Uso', href: 'termos-de-uso.html', icon: 'file-text' }
+                { id: 'home', label: 'Início', href: 'index.html', icon: 'home', active: isHome },
+                { id: 'rifas', label: 'Rifas', href: isHome ? '#campanhas' : 'index.html#campanhas', icon: 'ticket', active: false },
+                { id: 'meus', label: 'Meus Números', href: 'dashboard.html', icon: 'hash', active: isDashboard },
+                { id: 'termos', label: 'Termos', href: 'termos-de-uso.html', icon: 'file-text', active: isTerms },
+                { 
+                    id: 'conta', 
+                    label: user ? user.name.split(' ')[0] : 'Login', 
+                    href: user ? 'dashboard.html' : 'login.html', 
+                    icon: 'user', 
+                    active: false 
+                }
             ];
 
-            const navItemsHtml = navItems.map(m => `<li><a href="${m.href}">${m.label}</a></li>`).join('');
-            const sidebarItemsHtml = navItems.map(m => `<li><a href="${m.href}"><i data-lucide="${m.icon}"></i> ${m.label}</a></li>`).join('') +
-                (user || isAdmin ? `<li><a href="#" onclick="DataService.logout()"><i data-lucide="log-out"></i> Sair</a></li>` : `<li><a href="login.html"><i data-lucide="log-in"></i> Entrar</a></li>`);
-
-            const bottomNavHtml = navItems.map(m => `
-                <a href="${m.href}" class="mobile-nav-item">
-                    <i data-lucide="${m.icon}"></i>
-                    <span>${m.label}</span>
+            const navItemsHtml = navItems.map(item => `
+                <a href="${item.href}" class="mobile-nav-item ${item.active ? 'active' : ''} ${item.id === 'conta' && user ? 'user-nav-item' : ''}">
+                    <i data-lucide="${item.icon}"></i>
+                    <span>${item.label}</span>
                 </a>
             `).join('');
 
-            if (desktopNav) desktopNav.innerHTML = navItemsHtml;
-            if (sidebarNav) sidebarNav.innerHTML = sidebarItemsHtml;
-            if (bottomNavContainer && !isAdmin) bottomNavContainer.innerHTML = bottomNavHtml;
+            bottomNav.innerHTML = `
+                <div class="mobile-nav-items">
+                    ${navItemsHtml}
+                </div>
+            `;
+
+            document.body.appendChild(bottomNav);
+
+            // Desktop Nav fallback
+            const desktopItemsHtml = navItems.map(m => `<li><a href="${m.href}">${m.label}</a></li>`).join('');
+            if (desktopNav) desktopNav.innerHTML = desktopItemsHtml;
+            
+            // Sidebar fallback (though hidden on mobile now)
+            if (sidebarNav) {
+                let sidebarHtml = desktopItemsHtml;
+                if (isAdmin) sidebarHtml += `<li><a href="admin.html" style="color:var(--accent-primary)">Painel Admin</a></li>`;
+                if (user) sidebarHtml += `<li><a href="#" onclick="DataService.logout()">Sair da Conta</a></li>`;
+                sidebarNav.innerHTML = sidebarHtml;
+            }
 
             if (navActions) {
                 let actionsHtml = '';
-                if (isAdmin || user) {
-                    actionsHtml += `<span class="user-greeting">Olá, ${(user?.name || 'Admin').split(' ')[0]}</span>`;
-                    actionsHtml += `<a href="#" onclick="DataService.logout()" class="nav-btn-link">Sair</a>`;
-                } else {
-                    actionsHtml += `<a href="login.html" class="premium-btn sm">Entrar</a>`;
-                }
-                actionsHtml += `<button class="menu-toggle" id="menuToggle"><span></span><span></span><span></span></button>`;
+                if (user) actionsHtml += `<span class="user-greeting">Olá, ${user.name.split(' ')[0]}</span>`;
+                actionsHtml += `<button class="menu-toggle" id="menuToggle" aria-label="Abrir Menu"><span></span><span></span><span></span></button>`;
                 navActions.innerHTML = actionsHtml;
-
-                // Re-atribui o evento de toggle se necessário (caso o botão tenha sido recriado)
-                const menuToggle = document.getElementById('menuToggle');
-                if (menuToggle && window.MainApp && window.MainApp.setupToggles) {
-                    window.MainApp.setupToggles();
-                }
+                if (window.MainApp && window.MainApp.setupToggles) window.MainApp.setupToggles();
             }
 
             if (window.lucide) lucide.createIcons();

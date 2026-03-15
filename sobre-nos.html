@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sobre Nós | Como Funciona | Dollyn Storm</title>
+    <title>Sobre Nós | Dollyn Storm Rifas</title>
     <link rel="icon" type="image/png" href="assets/logo.png">
     <link rel="apple-touch-icon" href="assets/logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -149,18 +149,28 @@
 
 <body>
     <header class="main-header">
-        <div class="container" style="display: flex; justify-content: center;">
+        <div class="container flex align-center justify-between">
             <div class="logo">
-                <a href="index.html">
+                <a href="index.html" class="flex align-center">
                     <img src="assets/logo.png" alt="Dollyn Storm Logo" class="main-logo">
                 </a>
+            </div>
+
+            <nav class="desktop-nav">
+                <ul class="flex">
+                    <!-- Dinâmico -->
+                </ul>
+            </nav>
+
+            <div class="header-actions flex align-center gap-15" id="navActions">
+                <!-- Dinâmico -->
             </div>
         </div>
     </header>
 
     <main class="container page-content">
         <div class="info-card glass">
-            <h1>Sobre nós / Como funciona</h1>
+            <h1>Sobre nós</h1>
 
             <section class="info-section">
                 <h2><i data-lucide="info"></i> SOBRE NÓS</h2>
@@ -239,8 +249,53 @@
     </main>
 
     <footer class="main-footer">
-        <div class="container text-center">
-            <p>&copy; 2026 Dollyn Storm Rifas. Todos os direitos reservados.</p>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="footer-logo-img">
+                    <p>Plataforma focada em rifas de skins de CS com sorteios transparentes e pagamento via PIX.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Links Úteis</h4>
+                    <ul>
+                        <li><a href="sobre-nos.html">Sobre nós</a></li>
+                        <li><a href="como-funciona.html">Como funciona</a></li>
+                        <li><a href="termos-de-uso.html">Termos de uso</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>Redes Sociais</h4>
+                    <div class="social-icons">
+                        <a href="https://www.instagram.com/dollyn.storm_skins/" target="_blank">Instagram</a>
+                        <a href="#">WhatsApp</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-trust-bar">
+                <div class="trust-items">
+                    <div class="trust-item">
+                        <i data-lucide="shield-check"></i>
+                        <span>Entrega em 48 horas</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Sorteios transparentes</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="zap"></i>
+                        <span>Pagamento via PIX</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="cpu"></i>
+                        <span>Sistema automatizado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                &copy; 2026 Dollyn Storm Rifas – Todos os direitos reservados.
+            </div>
         </div>
     </footer>
 

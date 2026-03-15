@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Como Funciona | Dollyn Storm Rifas</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .page-content {
+            padding: 100px 0;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .info-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .info-card h1 {
+            color: var(--accent-primary);
+            margin-bottom: 30px;
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .info-section {
+            margin-bottom: 40px;
+        }
+
+        .info-section h2 {
+            font-size: 18px;
+            color: #fff;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-section h2 i {
+            color: var(--accent-primary);
+        }
+
+        /* Timeline style for Como Funciona */
+        .step-list {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .step-item {
+            position: relative;
+            padding-bottom: 25px;
+            color: var(--text-muted);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .step-item::before {
+            content: '';
+            position: absolute;
+            left: -31px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            box-shadow: 0 0 10px var(--accent-primary);
+        }
+
+        .step-item::after {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 20px;
+            width: 2px;
+            height: calc(100% - 12px);
+            background: var(--border-color);
+        }
+
+        .step-item:last-child::after {
+            display: none;
+        }
+
+        .step-item strong {
+            color: #fff;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .back-link {
+            margin-top: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-primary);
+            font-weight: 600;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .back-link:hover {
+            gap: 12px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .info-card {
+                padding: 25px;
+                border-radius: 16px;
+            }
+
+            .info-card h1 {
+                font-size: 26px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="main-header">
+        <div class="container flex align-center justify-between">
+            <div class="logo">
+                <a href="index.html" class="flex align-center">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="main-logo">
+                </a>
+            </div>
+
+            <nav class="desktop-nav">
+                <ul class="flex">
+                    <!-- Dinâmico via dataService.js -->
+                </ul>
+            </nav>
+
+            <div class="header-actions flex align-center gap-15" id="navActions">
+                <!-- Dinâmico via dataService.js -->
+            </div>
+        </div>
+    </header>
+
+    <main class="container page-content">
+        <div class="info-card glass">
+            <h1>Como funciona</h1>
+
+            <section class="info-section">
+                <h2><i data-lucide="help-circle"></i> PASSO A PASSO</h2>
+                <div class="step-list">
+                    <div class="step-item">
+                        <strong>1. Escolha sua Rifa</strong>
+                        Explore nossas campanhas ativas e escolha a skin que você deseja ganhar.
+                    </div>
+                    <div class="step-item">
+                        <strong>2. Selecione a Quantidade</strong>
+                        Escolha quantos números (cotas) você deseja comprar para aumentar suas chances.
+                    </div>
+                    <div class="step-item">
+                        <strong>3. Pagamento via PIX</strong>
+                        Realize o pagamento de forma rápida e segura através do QR Code PIX gerado.
+                    </div>
+                    <div class="step-item">
+                        <strong>4. O Sorteio</strong>
+                        Após a venda de todas as cotas, o sorteio será realizado (pelo sistema automatizado ou Loteria Federal, conforme a regra da rifa).
+                    </div>
+                    <div class="step-item">
+                        <strong>5. Receba seu Prêmio</strong>
+                        Se você for o ganhador, entraremos em contato via WhatsApp e enviaremos o item diretamente para sua conta Steam via Trade Link.
+                    </div>
+                </div>
+            </section>
+
+            <a href="index.html" class="back-link">
+                <i data-lucide="arrow-left"></i> Voltar para o Início
+            </a>
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="footer-logo-img">
+                    <p>Plataforma focada em rifas de skins de CS com sorteios transparentes e pagamento via PIX.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Links Úteis</h4>
+                    <ul>
+                        <li><a href="sobre-nos.html">Sobre nós</a></li>
+                        <li><a href="como-funciona.html">Como funciona</a></li>
+                        <li><a href="termos-de-uso.html">Termos de uso</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>Redes Sociais</h4>
+                    <div class="social-icons">
+                        <a href="https://www.instagram.com/dollyn.storm_skins/" target="_blank">Instagram</a>
+                        <a href="#">WhatsApp</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-trust-bar">
+                <div class="trust-items">
+                    <div class="trust-item">
+                        <i data-lucide="shield-check"></i>
+                        <span>Entrega em 48 horas</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Sorteios transparentes</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="zap"></i>
+                        <span>Pagamento via PIX</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="cpu"></i>
+                        <span>Sistema automatizado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                &copy; 2026 Dollyn Storm Rifas – Todos os direitos reservados.
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/dataService.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        });
+    </script>
+</body>
+</html>

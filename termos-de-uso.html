@@ -78,11 +78,21 @@
 
 <body>
     <header class="main-header">
-        <div class="container" style="display: flex; justify-content: center;">
+        <div class="container flex align-center justify-between">
             <div class="logo">
-                <a href="index.html">
+                <a href="index.html" class="flex align-center">
                     <img src="assets/logo.png" alt="Dollyn Storm Logo" class="main-logo">
                 </a>
+            </div>
+
+            <nav class="desktop-nav">
+                <ul class="flex">
+                    <!-- Dinâmico -->
+                </ul>
+            </nav>
+
+            <div class="header-actions flex align-center gap-15" id="navActions">
+                <!-- Dinâmico -->
             </div>
         </div>
     </header>
@@ -137,8 +147,74 @@
     </main>
 
     <footer class="main-footer">
-        <div class="container text-center">
-            <p>&copy; 2026 Dollyn Storm Rifas. Todos os direitos reservados.</p>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="assets/logo.png" alt="Dollyn Storm Logo" class="footer-logo-img">
+                    <p>Plataforma focada em rifas de skins de CS com sorteios transparentes e pagamento via PIX.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Links Úteis</h4>
+                    <ul>
+                        <li><a href="sobre-nos.html">Sobre nós</a></li>
+                        <li><a href="como-funciona.html">Como funciona</a></li>
+                        <li><a href="termos-de-uso.html">Termos de uso</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>Redes Sociais</h4>
+                    <div class="social-icons">
+                        <a href="https://www.instagram.com/dollyn.storm_skins/" target="_blank">Instagram</a>
+                        <a href="#">WhatsApp</a>
+                    </div>
+                </div>
+                <div class="footer-info">
+                    <h4>Informações da Plataforma</h4>
+                    <div class="trust-grid flex flex-column gap-15">
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="shield-check" class="icon-purple"></i>
+                            <span>Entrega em 48 horas</span>
+                        </div>
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="refresh-cw" class="icon-purple"></i>
+                            <span>Sorteios transparentes</span>
+                        </div>
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="zap" class="icon-purple"></i>
+                            <span>Pagamento via PIX</span>
+                        </div>
+                        <div class="trust-item flex align-center gap-10">
+                            <i data-lucide="cpu" class="icon-purple"></i>
+                            <span>Sistema automatizado</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-trust-bar">
+                <div class="trust-items">
+                    <div class="trust-item">
+                        <i data-lucide="shield-check"></i>
+                        <span>Entrega em 48 horas</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Sorteios transparentes</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="zap"></i>
+                        <span>Pagamento via PIX</span>
+                    </div>
+                    <div class="trust-item">
+                        <i data-lucide="cpu"></i>
+                        <span>Sistema automatizado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                &copy; 2026 Dollyn Storm Rifas – Todos os direitos reservados.
+            </div>
         </div>
     </footer>
 
