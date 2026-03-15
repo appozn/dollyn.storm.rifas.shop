@@ -17,10 +17,11 @@
     <!-- Main Styles -->
     <link rel="stylesheet" href="css/style.css">
     <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="js/dataService.js"></script>
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <script src="js/dataService.js" defer></script>
+    <script src="js/main.js" defer></script>
 </head>
 
 <body>
@@ -111,7 +112,7 @@
                     <ul>
                         <li><a href="#">Sobre nós</a></li>
                         <li><a href="#">Como funciona</a></li>
-                        <li><a href="#">Termos de Uso</a></li>
+                        <li><a href="termos-de-uso.html">Termos de Uso</a></li>
                     </ul>
                 </div>
                 <div class="footer-social">
@@ -127,7 +128,7 @@
                     <div class="flex justify-between align-center flex-wrap gap-20 text-center">
                         <div class="trust-item flex align-center gap-10">
                             <i data-lucide="shield-check" class="icon-purple"></i>
-                            <span>Skins 100% Originais</span>
+                            <span>Entrega em 48 Horas</span>
                         </div>
                         <div class="trust-item flex align-center gap-10">
                             <i data-lucide="refresh-cw" class="icon-purple"></i>
@@ -164,23 +165,20 @@
                     participação exclusiva na rifa selecionada.</p>
                 <p><strong>4. Sorteio:</strong> O sorteio será realizado automaticamente pelo sistema assim que todas as
                     cotas forem vendidas ou na data estipulada.</p>
-                <p><strong>5. Pagamento:</strong> O pagamento deve ser feito via PIX. A confirmação é feita manualmente
-                    pelo administrador.</p>
+                <p><strong>5. Pagamento:</strong> O pagamento deve ser feito via PIX. A confirmação é feita pelo sistema
+                    ou manualmente pelo administrador.</p>
+                <p>Consulte os termos completos em: <a href="termos-de-uso.html" target="_blank"
+                        style="color:var(--accent-primary); text-decoration:underline;">Página de Termos</a></p>
             </div>
             <button class="premium-btn full"
                 onclick="document.getElementById('termsModal').style.display='none'">Fechar</button>
         </div>
     </div>
 
-    <script src="js/main.js"></script>
     <script>
-        lucide.createIcons();
-        if (typeof DataService !== 'undefined') DataService.renderMenu();
-
-        // Sync em tempo real entre admin e site (mesmo navegador)
-        window.addEventListener('storage', () => {
-            if (typeof renderCampaignCards === 'function') renderCampaignCards();
-            if (typeof DataService !== 'undefined' && typeof DataService.renderMenu === 'function') DataService.renderMenu();
+        // Carregamento inicial garantido após o carregamento dos scripts deferidos
+        window.addEventListener('load', () => {
+            if (typeof DataService !== 'undefined') DataService.renderMenu();
         });
     </script>
 </body>

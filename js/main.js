@@ -54,40 +54,65 @@ const PixGenerator = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // UI Toggles (Sidebar/Overlay)
-    const menuToggle = document.getElementById('menuToggle');
-    const closeSidebar = document.getElementById('closeSidebar');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
+    // Consolidate UI Toggles
+    const setupToggles = () => {
+        const menuToggle = document.getElementById('menuToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
 
-    const toggleSidebar = (show) => {
-        if (show) { sidebar.classList.add('open'); overlay.classList.add('show'); document.body.style.overflow = 'hidden'; }
-        else { sidebar.classList.remove('open'); overlay.classList.remove('show'); document.body.style.overflow = ''; }
+        if (!menuToggle || !sidebar || !overlay) return;
+
+        const toggleSidebar = (show) => {
+            if (show) {
+                sidebar.classList.add('open');
+                overlay.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            } else {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        };
+
+        // Remove old listeners to avoid duplicates
+        const newMenuToggle = menuToggle.cloneNode(true);
+        menuToggle.parentNode.replaceChild(newMenuToggle, menuToggle);
+
+        newMenuToggle.addEventListener('click', () => toggleSidebar(true));
+        if (closeSidebar) closeSidebar.onclick = () => toggleSidebar(false);
+        overlay.onclick = () => toggleSidebar(false);
+
+        document.querySelectorAll('.sidebar-nav a').forEach(link => {
+            link.onclick = () => toggleSidebar(false);
+        });
     };
+    window.MainApp = window.MainApp || {};
+    window.MainApp.setupToggles = setupToggles;
 
-    if (menuToggle) menuToggle.addEventListener('click', () => toggleSidebar(true));
-    if (closeSidebar) closeSidebar.addEventListener('click', () => toggleSidebar(false));
-    if (overlay) overlay.addEventListener('click', () => toggleSidebar(false));
+    setupToggles();
 
-    // Close sidebar on link click (for mobile experience)
-    const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
-    sidebarLinks.forEach(link => {
-        link.addEventListener('click', () => toggleSidebar(false));
-    });
-
-    // Add scroll effect to header
+    // Optimized Scroll Effect (Throttled)
+    let scrollTimeout;
     const header = document.querySelector('.main-header');
     window.addEventListener('scroll', () => {
-        if (window.scrollY > 50) {
-            header.style.backgroundColor = 'rgba(10, 10, 11, 0.95)';
-            header.style.padding = '10px 0';
-        } else {
-            header.style.backgroundColor = 'rgba(10, 10, 11, 0.8)';
-            header.style.padding = '15px 0';
-        }
-    });
+        if (scrollTimeout) return;
+        scrollTimeout = setTimeout(() => {
+            const isScrolled = window.scrollY > 20;
+            header?.classList.toggle('scrolled', isScrolled);
+            if (isScrolled) {
+                header.style.backgroundColor = 'rgba(10, 10, 11, 0.95)';
+                header.style.padding = '10px 0';
+            } else {
+                header.style.backgroundColor = 'rgba(10, 10, 11, 0.8)';
+                header.style.padding = '15px 0';
+            }
+            scrollTimeout = null;
+        }, 50);
+    }, { passive: true });
 
-    // Dynamic Campaign Rendering
+    // Dynamic Campaign Rendering (Optimized)
+    let lastCampaignsState = '';
     const renderCampaignCards = async () => {
         const grid = document.getElementById('campaignGrid');
         if (!grid) return;
@@ -96,61 +121,71 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(r => r.status === 'Ativa')
             .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
-        grid.innerHTML = raffles.map(r => `
-            <div class="raffle-card" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}">
-                <div class="card-image">
-                    <img src="${r.imageUrl}" alt="${r.name}">
-                    <div class="status-badge">Aberto</div>
-                </div>
-                <div class="card-body">
-                    <div class="card-meta flex justify-between align-center">
-                        <span class="product-type">Rifa de Skin CS</span>
-                        <span class="unit-price-tag">Valor por número: R$ ${parseFloat(r.price).toFixed(2).replace('.', ',')}</span>
-                    </div>
-                    <h3>${r.name}</h3>
-                    <p class="card-subtitle">${r.description}</p>
+        const stateKey = JSON.stringify(raffles.map(r => r.id + r.status));
+        if (lastCampaignsState === stateKey) return;
 
-                    <div class="quantity-selector-container">
-                        <div class="flex align-center justify-between" style="margin-bottom: 8px;">
-                            <span class="label">Quantidade de números</span>
-                            <span class="min-qty-hint">(Mínimo ${r.minQty} unidades)</span>
-                        </div>
-                        <div class="quantity-controls flex align-center justify-between gap-10">
-                            <button class="qty-shortcut" onclick="MainApp.updateQty('${r.id}', -5)">-5</button>
-                            <button class="qty-btn" onclick="MainApp.updateQty('${r.id}', -1)"><i data-lucide="minus"></i></button>
-                            <span class="qty-value" id="qty-${r.id}">${r.minQty}</span>
-                            <button class="qty-btn" onclick="MainApp.updateQty('${r.id}', 1)"><i data-lucide="plus"></i></button>
-                            <button class="qty-shortcut" onclick="MainApp.updateQty('${r.id}', 5)">+5</button>
-                        </div>
+        requestAnimationFrame(() => {
+            grid.innerHTML = raffles.map(r => `
+                <div class="raffle-card" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}" data-is-free="${!!r.isFree}">
+                    <div class="card-image">
+                        <img src="${r.imageUrl}" alt="${r.name}" loading="lazy">
+                        <div class="status-badge">Aberto</div>
                     </div>
-
-                    <div class="card-footer">
-                        <div class="total-price-display">
-                            <span class="label">Total a pagar:</span>
-                            <span class="price" id="total-${r.id}">R$ ${(r.minQty * r.price).toFixed(2).replace('.', ',')}</span>
+                    <div class="card-body">
+                        <div class="card-meta flex justify-between align-center">
+                            <span class="product-type">Rifa de Skin CS</span>
+                            <span class="unit-price-tag">Valor: R$ ${parseFloat(r.price).toFixed(2).replace('.', ',')}</span>
                         </div>
-                        <button class="premium-btn" onclick="MainApp.buyRaffle('${r.id}')">Participar</button>
+                        <h3>${r.name}</h3>
+                        <p class="card-subtitle">${r.description}</p>
+
+                        <div class="quantity-selector-container">
+                            <div class="flex align-center justify-between" style="margin-bottom: 8px;">
+                                <span class="label">Quantidade</span>
+                                <span class="min-qty-hint">(Mín ${r.minQty})</span>
+                            </div>
+                            <div class="quantity-controls flex align-center justify-between gap-10">
+                                <button class="qty-shortcut" onclick="MainApp.updateQty('${r.id}', -5)">-5</button>
+                                <button class="qty-btn" onclick="MainApp.updateQty('${r.id}', -1)"><i data-lucide="minus"></i></button>
+                                <span class="qty-value" id="qty-${r.id}">${r.minQty}</span>
+                                <button class="qty-btn" onclick="MainApp.updateQty('${r.id}', 1)"><i data-lucide="plus"></i></button>
+                                <button class="qty-shortcut" onclick="MainApp.updateQty('${r.id}', 5)">+5</button>
+                            </div>
+                        </div>
+
+                        <div class="card-footer">
+                            <div class="total-price-display">
+                                <span class="label">Total:</span>
+                                <span class="price" id="total-${r.id}">R$ ${(r.minQty * r.price).toFixed(2).replace('.', ',')}</span>
+                            </div>
+                            <button class="premium-btn" onclick="MainApp.buyRaffle('${r.id}')">Participar</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
-        if (window.lucide) lucide.createIcons();
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+            lastCampaignsState = stateKey;
+        });
     };
 
     renderCampaignCards();
 
-    // Listen for changes in localStorage (sync across tabs)
-    window.addEventListener('storage', (e) => {
+    // Consolidated Storage Listener
+    window.addEventListener('storage', () => {
         renderCampaignCards();
-        if (typeof DataService !== 'undefined') DataService.renderMenu();
+        if (typeof DataService !== 'undefined') {
+            DataService.renderMenu();
+        }
     });
 
     // Globals for dynamic interaction
-    window.MainApp = {
+    Object.assign(window.MainApp, {
         updateQty(raffleId, delta) {
             const qtyEl = document.getElementById(`qty-${raffleId}`);
             const totalEl = document.getElementById(`total-${raffleId}`);
             const card = document.querySelector(`.raffle-card[data-raffle-id="${raffleId}"]`);
+
+            if (!qtyEl || !card) return;
 
             const unitPrice = parseFloat(card.dataset.unitPrice);
             const minQty = parseInt(card.dataset.minQty);
@@ -158,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             currentQty += delta;
             if (currentQty < minQty) {
-                alert(`A quantidade mínima para esta rifa é de ${minQty} números.`);
+                alert(`A quantidade mínima é ${minQty}.`);
                 return;
             }
 
@@ -168,25 +203,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         buyRaffle(raffleId) {
             const card = document.querySelector(`.raffle-card[data-raffle-id="${raffleId}"]`);
+            if (!card) return;
             const unitPrice = parseFloat(card.dataset.unitPrice);
-            const qty = parseInt(document.getElementById(`qty-${raffleId}`).textContent);
-            const total = (qty * unitPrice).toFixed(2);
+            const isFree = card.dataset.isFree === 'true';
+            const total = isFree ? "0.00" : (qty * unitPrice).toFixed(2);
 
-            // Get raffle context
             window.currentRaffleId = raffleId;
-            const raffleName = card.querySelector('h3').textContent;
-            window.currentRaffleName = raffleName;
+            window.currentRaffleName = card.querySelector('h3').textContent;
 
-            showIdentityModal(total, qty);
+            showIdentityModal(total, qty, isFree);
         }
-    };
+    });
 
-    function showIdentityModal(amount, qty) {
+    function showIdentityModal(amount, qty, isFree = false) {
         const modalHtml = `
             <div id="idModal" class="pix-modal-overlay">
                 <div class="pix-modal" style="max-width:400px;border-radius:24px;border:2px solid var(--accent-primary);">
-                    <h3 style="font-size:22px;color:var(--accent-primary);">v2.0 - Identificação Requerida</h3>
-                    <p style="margin-bottom:25px;font-size:14px;color:var(--text-muted);">Para sua segurança, informe Nome, CPF e WhatsApp para vincular seus números.</p>
+                    <h3 style="font-size:22px;color:var(--accent-primary);">${isFree ? 'Participar Gratuitamente' : 'v2.0 - Identificação Requerida'}</h3>
+                    <p style="margin-bottom:25px;font-size:14px;color:var(--text-muted);">${isFree ? 'Informe seus dados para receber seus números da sorte gratuitos.' : 'Para sua segurança, informe Nome, CPF e WhatsApp para vincular seus números.'}</p>
                     <div class="form-group" style="margin-bottom:15px;text-align:left;">
                         <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--text-dim);font-weight:600;">NOME COMPLETO</label>
                         <input type="text" id="userName" placeholder="Ex: João Silva" style="width:100%;padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;color:#fff;outline:none;">
@@ -203,11 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- Stage 1: Terms Checkbox -->
                     <div style="text-align:left; margin-bottom:20px; font-size:13px; color:var(--text-muted); display:flex; align-items:center; gap:10px;">
                         <input type="checkbox" id="acceptTerms" style="width:18px; height:18px; cursor:pointer;">
-                        <label for="acceptTerms">Li e aceito os <a href="#" id="viewTermsLink" style="color:var(--accent-primary); text-decoration:underline;">termos da plataforma</a>.</label>
+                        <label for="acceptTerms">Li e aceito os <a href="termos-de-uso.html" target="_blank" id="viewTermsLink" style="color:var(--accent-primary); text-decoration:underline;">termos da plataforma</a>.</label>
                     </div>
 
                     <div style="display: flex; justify-content: center; width: 100%;">
-                        <button class="premium-btn full" id="proceedToPayBtn" style="padding:16px;">Gerar Pagamento PIX</button>
+                        <button class="premium-btn full" id="proceedToPayBtn" style="padding:16px;">${isFree ? 'Garantir Meus Números' : 'Gerar Pagamento PIX'}</button>
                     </div>
                     <button class="close-modal" id="closeIdModal" style="margin-top:10px;border:none;font-size:13px;text-decoration:underline;">Cancelar e voltar</button>
                 </div>
@@ -217,12 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('closeIdModal').addEventListener('click', () => document.getElementById('idModal').remove());
 
-        // Modal de Termos
-        document.getElementById('viewTermsLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            const termsModal = document.getElementById('termsModal');
-            if (termsModal) termsModal.style.display = 'flex';
-        });
+        // Modal de Termos - Removido bloqueio para abrir página diretamente
 
         document.getElementById('proceedToPayBtn').addEventListener('click', () => {
             const name = document.getElementById('userName').value;
@@ -251,8 +280,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             document.getElementById('idModal').remove();
-            showPixModal(amount, qty, name, phone, cpf);
+            if (isFree) {
+                // Pular modal PIX e ir direto para o processamento
+                showSuccessFeedback(amount, qty, name, phone, cpf); // Função auxiliar para feedback visual
+                processPurchase(amount, qty, name, phone, cpf);
+            } else {
+                showPixModal(amount, qty, name, phone, cpf);
+            }
         });
+    }
+
+    // Função auxiliar para mostrar o feedback sem precisar do showPixModal
+    function showSuccessFeedback(amount, qty, name, phone, cpf) {
+        const modalHtml = `
+            <div id="pixModal" class="pix-modal-overlay">
+                <div class="pix-modal">
+                    <div class="loader-container" style="padding:40px;text-align:center;">
+                        <i data-lucide="loader" class="animate-spin" style="width:40px;height:40px;color:var(--accent-primary);"></i>
+                        <p style="margin-top:20px;">Processando sua participação gratuita...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        if (window.lucide) lucide.createIcons();
     }
 
     function showPixModal(amount, qty, name, phone, cpf) {

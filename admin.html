@@ -185,6 +185,18 @@
                                 <option value="Encerrada">Encerrada</option>
                             </select>
                         </div>
+                        <div class="form-group"
+                            style="grid-column: span 2; display: flex; align-items: center; gap: 10px; background: rgba(139, 92, 246, 0.1); padding: 15px; border-radius: 12px; border: 1px solid var(--accent-primary); margin-top: 10px;">
+                            <input type="checkbox" id="raffleIsFree"
+                                style="width: 20px; height: 20px; cursor: pointer;">
+                            <label for="raffleIsFree"
+                                style="font-weight: 700; color: var(--accent-primary); cursor: pointer; margin: 0;">RIFA
+                                GRATUITA (Sem pagamento PIX)</label>
+                        </div>
+                        <div class="form-group" id="totalNumbersGroup">
+                            <label>Quantidade Total de Números</label>
+                            <input type="number" id="raffleTotalNumbers" placeholder="Ex: 1000">
+                        </div>
                         <div class="form-actions" style="grid-column: span 2;">
                             <button type="submit" class="premium-btn">Salvar Rifa</button>
                             <button type="button" class="nav-btn-link"
@@ -295,10 +307,12 @@
 
     <script src="js/main.js"></script>
     <script>
-        function checkAdminAuth() {
+        async function checkAdminAuth() {
             const email = document.getElementById('adminEmail').value;
             const pass = document.getElementById('adminPassword').value;
-            if (DataService.loginAdmin(email, pass)) {
+            const isValid = await DataService.loginAdmin(email, pass);
+
+            if (isValid) {
                 document.getElementById('adminAuth').style.display = 'none';
                 document.getElementById('adminContent').style.display = 'flex';
                 AdminPanel.init();
@@ -549,8 +563,11 @@
                 const container = document.getElementById('rafflesTableBody');
                 container.innerHTML = raffles.map(r => `
                     <tr>
-                        <td data-label="Nome"><strong>${r.name}</strong></td>
-                        <td data-label="Valor">R$ ${parseFloat(r.price).toFixed(2)}</td>
+                        <td data-label="Nome">
+                            <strong>${r.name}</strong>
+                            ${r.isFree ? '<span class="status-pill active" style="background:var(--accent-primary); font-size:9px; margin-left:5px;">GRATUITA</span>' : ''}
+                        </td>
+                        <td data-label="Valor">${r.isFree ? 'Grátis' : 'R$ ' + parseFloat(r.price).toFixed(2)}</td>
                         <td data-label="Min. Qty">${r.minQty}</td>
                         <td data-label="Status"><span class="status-pill ${r.status === 'Ativa' ? 'active' : ''}">${r.status}</span></td>
                         <td data-label="Ações">
@@ -585,6 +602,8 @@
                     imageUrl: document.getElementById('raffleImg').value,
                     price: parseFloat(document.getElementById('rafflePrice').value),
                     minQty: parseInt(document.getElementById('raffleMinQty').value),
+                    totalNumbers: parseInt(document.getElementById('raffleTotalNumbers').value) || 0,
+                    isFree: document.getElementById('raffleIsFree').checked,
                     status: document.getElementById('raffleStatus').value,
                     createdAt: existing ? existing.createdAt : new Date().toISOString()
                 };
@@ -612,6 +631,8 @@
                     document.getElementById('raffleImg').value = r.imageUrl;
                     document.getElementById('rafflePrice').value = r.price;
                     document.getElementById('raffleMinQty').value = r.minQty;
+                    document.getElementById('raffleTotalNumbers').value = r.totalNumbers || '';
+                    document.getElementById('raffleIsFree').checked = !!r.isFree;
                     document.getElementById('raffleStatus').value = r.status;
                 }
             },

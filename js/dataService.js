@@ -30,11 +30,15 @@ const DataService = {
             const SB_URL = "https://wggseeibnxcsefbxjuxj.supabase.co";
             const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnZ3NlZWlibnhjc2VmYnhqdXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MjM2OTEsImV4cCI6MjA4ODM5OTY5MX0.zYQ9ezZQuiqGl_lskROwkOsxqMdULuqDADXJeLl5nDk";
 
-            // Esperar até que o Supabase esteja disponível (máximo 5 segundos)
-            let attempts = 0;
-            while (!window.supabase && attempts < 10) {
-                await new Promise(r => setTimeout(r, 500));
-                attempts++;
+            // 3. Aguarda Supabase (se necessário) sem loop infinito ou travamentos
+            if (this.useCloud && !window.supabase) {
+                await new Promise(resolve => {
+                    const timer = setTimeout(resolve, 3000); // Timeout de 3s
+                    window.addEventListener('load', () => {
+                        clearTimeout(timer);
+                        resolve();
+                    }, { once: true });
+                });
             }
 
             if (this.useCloud && window.supabase) {
@@ -90,10 +94,41 @@ const DataService = {
         return localStorage.getItem(this.KEYS.ADMIN_AUTH) === 'true';
     },
 
-    loginAdmin(email, password) {
+    async loginAdmin(email, password) {
+        // 1. Verificação de Fallback (para quando a nuvem está offline mas o admin já logou antes neste dispositivo)
         if (email === 'admin.rifas@dm.com' && password === 'dollynstorm.admins') {
             localStorage.setItem(this.KEYS.ADMIN_AUTH, 'true');
+
+            // 2. Tentar sincronizar com a nuvem para garantir que outros dispositivos saibam
+            if (this.db) {
+                try {
+                    await this.db.from('users').upsert({
+                        email: email,
+                        password: this.encryptPassword(password),
+                        role: 'admin',
+                        name: 'Administrador'
+                    }, { onConflict: 'email' });
+                } catch (e) { console.warn("Erro ao sincronizar admin com nuvem:", e); }
+            }
             return true;
+        }
+
+        // 3. Verificação Universal via Supabase (Permite login em qualquer dispositivo)
+        if (this.db) {
+            try {
+                const { data, error } = await this.db.from('users')
+                    .select('*')
+                    .eq('email', email)
+                    .eq('role', 'admin')
+                    .single();
+
+                if (data && data.password === this.encryptPassword(password)) {
+                    localStorage.setItem(this.KEYS.ADMIN_AUTH, 'true');
+                    return true;
+                }
+            } catch (err) {
+                console.error("Erro na autenticação cloud do admin:", err);
+            }
         }
         return false;
     },
@@ -228,6 +263,8 @@ const DataService = {
                     imageUrl: raffle.imageUrl,
                     price: parseFloat(raffle.price),
                     minQty: parseInt(raffle.minQty),
+                    totalNumbers: parseInt(raffle.totalNumbers || 0),
+                    isFree: !!raffle.isFree,
                     status: raffle.status,
                     createdAt: raffle.createdAt
                 });
@@ -328,6 +365,29 @@ const DataService = {
             status: 'PIX GERADO'
         };
 
+        // 1. Verificar se a rifa é gratuita
+        const raffles = await this.getRafflesList();
+        const raffle = raffles.find(r => r.id === data.raffleId);
+
+        if (raffle && raffle.isFree) {
+            newPurchase.status = 'Aprovado';
+            newPurchase.amount = 0; // Garantir valor zero para gratuidade
+            // Gerar números imediatamente
+            newPurchase.numbers = await this.generateUniqueNumbers(data.raffleId, data.qty);
+
+            // Verificação de Limite (Auto-Encerrar)
+            if (raffle.totalNumbers > 0) {
+                const sold = await this.getNumbersSold();
+                const totalSoldForThis = sold.filter(n => n.raffleId === data.raffleId).length + parseInt(data.qty);
+
+                if (totalSoldForThis >= raffle.totalNumbers) {
+                    console.log("Limite atingido! Encerrando rifa gratuita...");
+                    raffle.status = 'Encerrada';
+                    await this.saveRaffle(raffle);
+                }
+            }
+        }
+
         if (this.useCloud && this.db) {
             try {
                 const { error } = await this.db.from('purchases').insert({
@@ -339,7 +399,7 @@ const DataService = {
                     userPhone: newPurchase.userPhone, // Mapped to quoted "userPhone"
                     amount: parseFloat(newPurchase.amount),
                     qty: parseInt(newPurchase.qty),
-                    numbers: newPurchase.numbers,
+                    numbers: newPurchase.numbers || [],
                     attempts: newPurchase.attempts,
                     date: newPurchase.date,
                     status: newPurchase.status
@@ -437,79 +497,80 @@ const DataService = {
     },
 
     // --- UI Rendering ---
+    lastRenderedState: null,
     renderMenu() {
-        const desktopNav = document.querySelector('.desktop-nav ul');
-        const sidebarNav = document.querySelector('.sidebar-nav ul');
-        const adminNav = document.querySelector('.admin-nav ul');
-        const navActions = document.getElementById('navActions');
-        const isAdmin = this.isAdmin();
-        const user = this.getCurrentUser();
+        // Debounce/Throttle check: evita renderizar mais de uma vez por frame
+        if (this._rendering) return;
+        this._rendering = true;
 
-        if (!document.querySelector('.mobile-bottom-nav') && !isAdmin) {
-            const bottomNav = document.createElement('div');
-            bottomNav.className = 'mobile-bottom-nav';
-            document.body.appendChild(bottomNav);
-        }
+        requestAnimationFrame(() => {
+            const isAdmin = this.isAdmin();
+            const user = this.getCurrentUser();
+            const stateKey = `${isAdmin}-${user?.email || 'none'}`;
 
-        const navItems = [
-            { label: 'Início', href: 'index.html', icon: 'home' },
-            { label: 'Campanhas', href: 'index.html#campanhas', icon: 'crosshair' },
-            { label: 'Ganhadores', href: 'ganhadores.html', icon: 'trophy' },
-            { label: 'Minhas Cotas', href: 'dashboard.html', icon: 'user' }
-        ];
-
-        if (desktopNav) {
-            desktopNav.innerHTML = navItems.map(m => `
-                <li><a href="${m.href}">${m.label}</a></li>
-            `).join('');
-        }
-
-        if (sidebarNav) {
-            sidebarNav.innerHTML = navItems.map(m => `
-                <li><a href="${m.href}"><i data-lucide="${m.icon}"></i> ${m.label}</a></li>
-            `).join('');
-            if (user || isAdmin) {
-                sidebarNav.innerHTML += `<li><a href="#" onclick="DataService.logout()"><i data-lucide="log-out"></i> Sair</a></li>`;
-            } else {
-                sidebarNav.innerHTML += `<li><a href="login.html"><i data-lucide="log-in"></i> Entrar</a></li>`;
+            // Evita re-renderizar se nada mudou
+            if (this.lastRenderedState === stateKey) {
+                this._rendering = false;
+                return;
             }
-        }
 
-        const bottomNavContainer = document.querySelector('.mobile-bottom-nav');
-        if (bottomNavContainer && !isAdmin) {
-            bottomNavContainer.innerHTML = navItems.map(m => `
+            const desktopNav = document.querySelector('.desktop-nav ul');
+            const sidebarNav = document.querySelector('.sidebar-nav ul');
+            const navActions = document.getElementById('navActions');
+            const bottomNavContainer = document.querySelector('.mobile-bottom-nav');
+
+            if (!bottomNavContainer && !isAdmin && !document.querySelector('.mobile-bottom-nav')) {
+                const bottomNav = document.createElement('div');
+                bottomNav.className = 'mobile-bottom-nav';
+                document.body.appendChild(bottomNav);
+            }
+
+            const navItems = [
+                { label: 'Início', href: 'index.html', icon: 'home' },
+                { label: 'Campanhas', href: 'index.html#campanhas', icon: 'crosshair' },
+                { label: 'Ganhadores', href: 'ganhadores.html', icon: 'trophy' },
+                { label: 'Minhas Cotas', href: 'dashboard.html', icon: 'user' },
+                { label: 'Sobre Nós', href: 'sobre-nos.html', icon: 'info' },
+                { label: 'Termos de Uso', href: 'termos-de-uso.html', icon: 'file-text' }
+            ];
+
+            const navItemsHtml = navItems.map(m => `<li><a href="${m.href}">${m.label}</a></li>`).join('');
+            const sidebarItemsHtml = navItems.map(m => `<li><a href="${m.href}"><i data-lucide="${m.icon}"></i> ${m.label}</a></li>`).join('') +
+                (user || isAdmin ? `<li><a href="#" onclick="DataService.logout()"><i data-lucide="log-out"></i> Sair</a></li>` : `<li><a href="login.html"><i data-lucide="log-in"></i> Entrar</a></li>`);
+
+            const bottomNavHtml = navItems.map(m => `
                 <a href="${m.href}" class="mobile-nav-item">
                     <i data-lucide="${m.icon}"></i>
                     <span>${m.label}</span>
                 </a>
             `).join('');
-        }
 
-        if (adminNav) {
-            adminNav.innerHTML = `
-                <li><a href="admin.html#dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</a></li>
-                <li><a href="admin.html#pendentes"><i data-lucide="clock"></i> Pagamentos</a></li>
-                <li><a href="admin.html#rifas"><i data-lucide="package"></i> Rifas</a></li>
-                <li><a href="admin.html#sorteio"><i data-lucide="award"></i> Sorteio</a></li>
-                <li><a href="admin.html#vencedores"><i data-lucide="user-plus"></i> Ganhador</a></li>
-                <li><a href="admin.html#compras"><i data-lucide="shopping-cart"></i> Vendas</a></li>
-                <li><a href="#" onclick="DataService.logout()"><i data-lucide="log-out"></i> Sair</a></li>
-            `;
-        }
+            if (desktopNav) desktopNav.innerHTML = navItemsHtml;
+            if (sidebarNav) sidebarNav.innerHTML = sidebarItemsHtml;
+            if (bottomNavContainer && !isAdmin) bottomNavContainer.innerHTML = bottomNavHtml;
 
-        if (navActions) {
-            let actionsHtml = '';
-            if (isAdmin || user) {
-                actionsHtml += `<span class="user-greeting">Olá, ${(user?.name || 'Admin').split(' ')[0]}</span>`;
-                actionsHtml += `<a href="#" onclick="DataService.logout()" class="nav-btn-link">Sair</a>`;
-            } else {
-                actionsHtml += `<a href="login.html" class="premium-btn sm">Entrar</a>`;
+            if (navActions) {
+                let actionsHtml = '';
+                if (isAdmin || user) {
+                    actionsHtml += `<span class="user-greeting">Olá, ${(user?.name || 'Admin').split(' ')[0]}</span>`;
+                    actionsHtml += `<a href="#" onclick="DataService.logout()" class="nav-btn-link">Sair</a>`;
+                } else {
+                    actionsHtml += `<a href="login.html" class="premium-btn sm">Entrar</a>`;
+                }
+                actionsHtml += `<button class="menu-toggle" id="menuToggle"><span></span><span></span><span></span></button>`;
+                navActions.innerHTML = actionsHtml;
+
+                // Re-atribui o evento de toggle se necessário (caso o botão tenha sido recriado)
+                const menuToggle = document.getElementById('menuToggle');
+                if (menuToggle && window.MainApp && window.MainApp.setupToggles) {
+                    window.MainApp.setupToggles();
+                }
             }
-            actionsHtml += `<button class="menu-toggle" id="menuToggle"><span></span><span></span><span></span></button>`;
-            navActions.innerHTML = actionsHtml;
-        }
 
-        if (window.lucide) lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
+            this.lastRenderedState = stateKey;
+            this._rendering = false;
+        });
     }
 };
 
