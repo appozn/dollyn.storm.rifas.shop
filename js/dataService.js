@@ -214,6 +214,7 @@ const DataService = {
             try {
                 const { data, error } = await this.db.from('raffles').select('*');
                 if (!error && data) {
+                    // Sincronizar cache local com dados da nuvem
                     localStorage.setItem(this.KEYS.RAFFLES_LIST, JSON.stringify(data));
                     return data;
                 }
@@ -268,11 +269,20 @@ const DataService = {
                     status: raffle.status,
                     createdAt: raffle.createdAt
                 });
-                if (error) throw error;
+                if (error) {
+                    if (error.message && error.message.includes("isFree")) {
+                        throw new Error("ERRO DE COLUNA NO SUPABASE: A coluna 'isFree' não foi encontrada. Você PRECISA rodar o script SQL no Supabase Editor:\n\nALTER TABLE raffles ADD COLUMN isFree BOOLEAN DEFAULT FALSE;");
+                    }
+                    throw error;
+                }
                 console.log("Rifa salva no Supabase com sucesso.");
             } catch (err) {
                 console.error("Erro ao salvar no Supabase:", err);
-                throw new Error("Falha ao salvar na Nuvem: " + (err.message || "Tabela 'raffles' não encontrada."));
+                const msg = err.message || "Erro desconhecido";
+                if (msg.includes("isFree")) {
+                    throw new Error("O banco de dados não está atualizado. Rode o SQL: ALTER TABLE raffles ADD COLUMN \"isFree\" BOOLEAN DEFAULT FALSE, ADD COLUMN \"totalNumbers\" INTEGER DEFAULT 0;");
+                }
+                throw new Error("Falha ao salvar na Nuvem: " + msg);
             }
         }
 
@@ -362,7 +372,7 @@ const DataService = {
             numbers: [], // Vazio até aprovação
             attempts: 0, // Campo para limite de aprovações
             date: new Date().toLocaleString('pt-BR'),
-            status: 'PIX GERADO'
+            status: 'Aguardando aprovação'
         };
 
         // 1. Verificar se a rifa é gratuita
@@ -484,7 +494,7 @@ const DataService = {
     async getStats() {
         const purchases = await this.getPurchases();
         // Apenas contas confirmadas ou com PIX gerado (que o admin vê como venda potencial)
-        const validPurchases = purchases.filter(p => ['PIX GERADO', 'Aprovado', 'Confirmado'].includes(p.status));
+        const validPurchases = purchases.filter(p => ['Aguardando aprovação', 'Aprovado', 'Confirmado'].includes(p.status));
         const totalNumbers = validPurchases.reduce((sum, p) => sum + (p.numbers ? p.numbers.length : 0), 0);
         const totalRevenue = validPurchases.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 

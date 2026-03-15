@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!grid) return;
 
         const raffles = (await DataService.getRafflesList())
-            .filter(r => r.status === 'Ativa')
+            .filter(r => r.status === 'Ativa' || r.status === 'Disponível')
             .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
         const stateKey = JSON.stringify(raffles.map(r => r.id + r.status));
@@ -206,12 +206,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!card) return;
             const unitPrice = parseFloat(card.dataset.unitPrice);
             const isFree = card.dataset.isFree === 'true';
-            const total = isFree ? "0.00" : (qty * unitPrice).toFixed(2);
+
+            // Fix: qty was not defined, use the global window.qty or get it from card if needed
+            // However, the system seems to use a global qty set by the counter
+            const currentQty = window.qty || 1;
+            const total = isFree ? "0.00" : (currentQty * unitPrice).toFixed(2);
 
             window.currentRaffleId = raffleId;
             window.currentRaffleName = card.querySelector('h3').textContent;
 
-            showIdentityModal(total, qty, isFree);
+            showIdentityModal(total, currentQty, isFree);
         }
     });
 
@@ -241,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div style="display: flex; justify-content: center; width: 100%;">
-                        <button class="premium-btn full" id="proceedToPayBtn" style="padding:16px;">${isFree ? 'Garantir Meus Números' : 'Gerar Pagamento PIX'}</button>
+                        <button class="premium-btn full" id="proceedToPayBtn" style="padding:16px;">${isFree ? 'Participar da Rifa' : 'Gerar Pagamento PIX'}</button>
                     </div>
                     <button class="close-modal" id="closeIdModal" style="margin-top:10px;border:none;font-size:13px;text-decoration:underline;">Cancelar e voltar</button>
                 </div>
@@ -339,10 +343,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function processPurchase(amount, qty, name, phone, cpf) {
+    async function processPurchase(amount, qty, name, phone, cpf) {
         try {
             // ETAPA 1, 2, 3 e 4: Gerar, Salvar (status Pendente - aguardando confirmação admin)
-            const purchase = DataService.completePurchase({
+            const purchase = await DataService.completePurchase({
                 raffleId: window.currentRaffleId || 'test-raffle',
                 raffleName: window.currentRaffleName || 'Produto Teste',
                 userName: name,
@@ -368,10 +372,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const modal = document.querySelector('.pix-modal');
             modal.innerHTML = `
                 <div class="success-icon" style="margin-bottom:20px;">
-                    <i data-lucide="clock" style="width:64px;height:64px;color:#f59e0b"></i>
+                    <i data-lucide="${purchase.status === 'Aprovado' ? 'check-circle' : 'clock'}" style="width:64px;height:64px;color:${purchase.status === 'Aprovado' ? '#10b981' : '#f59e0b'}"></i>
                 </div>
-                <h3 style="font-size:22px;margin-bottom:10px;color:#f59e0b;">Pagamento Enviado!</h3>
-                <p style="color:var(--text-muted);margin-bottom:5px;font-size:14px;">Seus números foram reservados. <strong>O acesso será liberado após a confirmação do pagamento pelo administrador.</strong></p>
+                <h3 style="font-size:22px;margin-bottom:10px;color:${purchase.status === 'Aprovado' ? '#10b981' : '#f59e0b'};">${purchase.status === 'Aprovado' ? 'Participação Confirmada!' : 'Pagamento Enviado!'}</h3>
+                <p style="color:var(--text-muted);margin-bottom:5px;font-size:14px;">${purchase.status === 'Aprovado' ? 'Você já está participando da rifa!' : 'Seus números foram reservados. <strong>O acesso será liberado após a confirmação do pagamento pelo administrador.</strong>'}</p>
 
                 <div class="numbers-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.2);padding:16px;border-radius:15px;margin:20px 0;border:1px solid var(--border-color);">
                     ${purchase.numbers.map(n => `<span class="num-chip" style="margin:0;font-size:13px;opacity:0.6;">#${n}</span>`).join('')}

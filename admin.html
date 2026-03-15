@@ -181,7 +181,8 @@
                         <div class="form-group">
                             <label>Status</label>
                             <select id="raffleStatus">
-                                <option value="Ativa">Ativa</option>
+                                <option value="Ativa">Ativa (Visível)</option>
+                                <option value="Disponível">Disponível (Visível)</option>
                                 <option value="Encerrada">Encerrada</option>
                             </select>
                         </div>
@@ -361,7 +362,7 @@
             async checkNewPurchases() {
                 // Só verifica se estiver logado ou na aba admin
                 const purchases = await DataService.getPurchases();
-                const pixGerados = purchases.filter(p => p.status === 'PIX GERADO');
+                const pixGerados = purchases.filter(p => p.status === 'Aguardando aprovação');
 
                 // Se o contador subiu, houve nova venda
                 if (this.lastPurchaseCount !== -1 && pixGerados.length > this.lastPurchaseCount) {
@@ -462,6 +463,17 @@
                 document.getElementById('raffleForm')?.addEventListener('submit', (e) => {
                     this.handleSaveRaffle(e);
                 });
+                document.getElementById('raffleIsFree')?.addEventListener('change', (e) => {
+                    const priceInput = document.getElementById('rafflePrice');
+                    if (e.target.checked) {
+                        priceInput.value = '0';
+                        priceInput.disabled = true;
+                        priceInput.removeAttribute('required');
+                    } else {
+                        priceInput.disabled = false;
+                        priceInput.setAttribute('required', 'true');
+                    }
+                });
                 document.getElementById('winnerForm')?.addEventListener('submit', (e) => {
                     this.handleSaveManualWinner(e);
                 });
@@ -508,7 +520,7 @@
             async updateDashboard() {
                 const stats = await DataService.getStats();
                 const purchases = await DataService.getPurchases();
-                const pending = purchases.filter(p => p.status === 'PIX GERADO').length;
+                const pending = purchases.filter(p => p.status === 'Aguardando aprovação').length;
 
                 document.getElementById('statRevenue').textContent = 'R$ ' + stats.totalRevenue;
                 document.getElementById('statPurchases').textContent = stats.totalPurchases;
@@ -523,7 +535,7 @@
             },
 
             async renderPendingPurchases() {
-                const purchases = (await DataService.getPurchases()).filter(p => p.status === 'PIX GERADO');
+                const purchases = (await DataService.getPurchases()).filter(p => p.status === 'Aguardando aprovação');
                 const container = document.getElementById('pendingTableBody');
                 container.innerHTML = purchases.map(p => `
                     <tr>
@@ -600,7 +612,7 @@
                     name: document.getElementById('raffleName').value,
                     description: document.getElementById('raffleDesc').value,
                     imageUrl: document.getElementById('raffleImg').value,
-                    price: parseFloat(document.getElementById('rafflePrice').value),
+                    price: document.getElementById('raffleIsFree').checked ? 0 : parseFloat(document.getElementById('rafflePrice').value || 0),
                     minQty: parseInt(document.getElementById('raffleMinQty').value),
                     totalNumbers: parseInt(document.getElementById('raffleTotalNumbers').value) || 0,
                     isFree: document.getElementById('raffleIsFree').checked,
@@ -608,9 +620,14 @@
                     createdAt: existing ? existing.createdAt : new Date().toISOString()
                 };
 
+                if (!raffle.isFree && isNaN(raffle.price)) {
+                    alert('Por favor, informe um preço válido para rifas pagas.');
+                    return;
+                }
+
                 try {
                     await DataService.saveRaffle(raffle);
-                    alert('Rifa salva com sucesso e disponível no site.');
+                    alert('Rifa salva com sucesso e sincronizada na Nuvem!');
                     e.target.reset();
                     idInput.value = '';
                     await this.renderRafflesList();
@@ -633,6 +650,17 @@
                     document.getElementById('raffleMinQty').value = r.minQty;
                     document.getElementById('raffleTotalNumbers').value = r.totalNumbers || '';
                     document.getElementById('raffleIsFree').checked = !!r.isFree;
+
+                    // Sync price field state
+                    const priceInput = document.getElementById('rafflePrice');
+                    if (r.isFree) {
+                        priceInput.disabled = true;
+                        priceInput.removeAttribute('required');
+                    } else {
+                        priceInput.disabled = false;
+                        priceInput.setAttribute('required', 'true');
+                    }
+
                     document.getElementById('raffleStatus').value = r.status;
                 }
             },
