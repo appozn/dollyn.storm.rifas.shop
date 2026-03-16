@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="qty-value" id="qty-${r.id}">${r.minQty}</span>
                                 <button class="qty-btn" onclick="MainApp.updateQty('${r.id}', 1)"><i data-lucide="plus"></i></button>
                                 <button class="qty-shortcut" onclick="MainApp.updateQty('${r.id}', 5)">+5</button>
+                                <button class="qty-btn" style="padding: 0 8px;" onclick="MainApp.editQty('${r.id}')" title="Editar quantidade"><i data-lucide="pencil" style="width: 16px; height: 16px;"></i></button>
                             </div>
                         </div>
 
@@ -199,6 +200,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Globals for dynamic interaction
     Object.assign(window.MainApp, {
+        async editQty(raffleId) {
+            const qtyEl = document.getElementById(`qty-${raffleId}`);
+            const totalEl = document.getElementById(`total-${raffleId}`);
+            const card = document.querySelector(`.raffle-card[data-raffle-id="${raffleId}"]`);
+
+            if (!qtyEl || !card) return;
+
+            const unitPrice = parseFloat(card.dataset.unitPrice);
+            const minQty = parseInt(card.dataset.minQty);
+            const available = await DataService.getAvailableSpots(raffleId);
+
+            const input = prompt(`Digite a quantidade desejada (Mín: ${minQty}, Disponível: ${available}):`);
+            if (input === null || input.trim() === '') return;
+
+            const newQty = parseInt(input, 10);
+
+            if (isNaN(newQty)) {
+                alert("Por favor, insira um número válido.");
+                return;
+            }
+
+            if (newQty < minQty) {
+                alert(`A quantidade mínima é ${minQty}.`);
+                return;
+            }
+
+            if (newQty > available) {
+                alert("Quantidade Limitada");
+                return;
+            }
+
+            qtyEl.textContent = newQty;
+            totalEl.textContent = `R$ ${(newQty * unitPrice).toFixed(2).replace('.', ',')}`;
+        },
+
         async updateQty(raffleId, delta) {
             const qtyEl = document.getElementById(`qty-${raffleId}`);
             const totalEl = document.getElementById(`total-${raffleId}`);
