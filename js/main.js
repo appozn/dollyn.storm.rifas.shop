@@ -124,12 +124,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const stateKey = JSON.stringify(raffles.map(r => r.id + r.status));
         if (lastCampaignsState === stateKey) return;
 
-        requestAnimationFrame(() => {
-            grid.innerHTML = raffles.map(r => `
-                <div class="raffle-card" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}" data-is-free="${!!r.isFree}">
+        requestAnimationFrame(async () => {
+            const rafflesHtml = await Promise.all(raffles.map(async r => {
+                const progress = await DataService.getRaffleProgress(r.id);
+                const isSoldOut = r.status === 'Encerrada' || (r.totalNumbers > 0 && progress >= 100);
+
+                return `
+                <div class="raffle-card ${isSoldOut ? 'sold-out' : ''}" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}" data-is-free="${!!r.isFree}">
                     <div class="card-image">
                         <img src="${r.imageUrl}" alt="${r.name}" loading="lazy">
-                        <div class="status-badge">Aberto</div>
+                        <div class="status-badge">${isSoldOut ? 'Esgotado' : 'Aberto'}</div>
                     </div>
                     <div class="card-body">
                         <div class="card-meta flex justify-between align-center">
@@ -139,7 +143,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h3>${r.name}</h3>
                         <p class="card-subtitle">${r.description}</p>
 
-                        <div class="quantity-selector-container">
+                        ${r.totalNumbers > 0 ? `
+                        <div class="progress-container" style="margin: 15px 0;">
+                            <div class="flex justify-between align-center" style="margin-bottom: 6px; font-size: 12px;">
+                                <span style="color: var(--text-dim);">Progresso</span>
+                                <span style="color: var(--accent-primary); font-weight: 700;">${progress}%</span>
+                            </div>
+                            <div class="progress-bar-bg" style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+                                <div class="progress-bar-fill" style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); transition: width 0.5s ease;"></div>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <div class="quantity-selector-container" ${isSoldOut ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>
                             <div class="flex align-center justify-between" style="margin-bottom: 8px;">
                                 <span class="label">Quantidade</span>
                                 <span class="min-qty-hint">(Mín ${r.minQty})</span>
@@ -158,11 +174,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="label">Total:</span>
                                 <span class="price" id="total-${r.id}">R$ ${(r.minQty * r.price).toFixed(2).replace('.', ',')}</span>
                             </div>
-                            <button class="premium-btn" onclick="MainApp.buyRaffle('${r.id}')">Participar</button>
+                            <button class="premium-btn" ${isSoldOut ? 'disabled' : ''} onclick="MainApp.buyRaffle('${r.id}')">${isSoldOut ? 'Encerrada' : 'Participar'}</button>
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }));
+
+            grid.innerHTML = rafflesHtml.join('');
             if (window.lucide) lucide.createIcons();
             lastCampaignsState = stateKey;
         });
@@ -180,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Globals for dynamic interaction
     Object.assign(window.MainApp, {
-        updateQty(raffleId, delta) {
+        async updateQty(raffleId, delta) {
             const qtyEl = document.getElementById(`qty-${raffleId}`);
             const totalEl = document.getElementById(`total-${raffleId}`);
             const card = document.querySelector(`.raffle-card[data-raffle-id="${raffleId}"]`);
@@ -191,14 +210,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const minQty = parseInt(card.dataset.minQty);
             let currentQty = parseInt(qtyEl.textContent);
 
-            currentQty += delta;
-            if (currentQty < minQty) {
+            const newQty = currentQty + delta;
+            
+            if (newQty < minQty) {
                 alert(`A quantidade mínima é ${minQty}.`);
                 return;
             }
 
-            qtyEl.textContent = currentQty;
-            totalEl.textContent = `R$ ${(currentQty * unitPrice).toFixed(2).replace('.', ',')}`;
+            // Verificar limite máximo (Meta)
+            const available = await DataService.getAvailableSpots(raffleId);
+            if (newQty > available) {
+                alert(`Ops! Só restam ${available} números disponíveis para esta rifa. A meta está quase batida!`);
+                return;
+            }
+
+            qtyEl.textContent = newQty;
+            totalEl.textContent = `R$ ${(newQty * unitPrice).toFixed(2).replace('.', ',')}`;
         },
 
         buyRaffle(raffleId) {
@@ -207,15 +234,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const unitPrice = parseFloat(card.dataset.unitPrice);
             const isFree = card.dataset.isFree === 'true';
 
-            // Fix: qty was not defined, use the global window.qty or get it from card if needed
-            // However, the system seems to use a global qty set by the counter
-            const currentQty = window.qty || 1;
-            const total = isFree ? "0.00" : (currentQty * unitPrice).toFixed(2);
-
-            window.currentRaffleId = raffleId;
-            window.currentRaffleName = card.querySelector('h3').textContent;
-
-            showIdentityModal(total, currentQty, isFree);
+            const qtyEl = document.getElementById(`qty-${raffleId}`);
+            const currentQty = qtyEl ? parseInt(qtyEl.textContent) : 1;
+            
+            // Verificação final antes de abrir modal
+            DataService.getAvailableSpots(raffleId).then(available => {
+                if (currentQty > available) {
+                    alert(`Limite atingido! Não é possível comprar ${currentQty} números. Disponíveis: ${available}`);
+                    return;
+                }
+                const total = isFree ? "0.00" : (currentQty * unitPrice).toFixed(2);
+                window.currentRaffleId = raffleId;
+                window.currentRaffleName = card.querySelector('h3').textContent;
+                showIdentityModal(total, currentQty, isFree);
+            });
         }
     });
 

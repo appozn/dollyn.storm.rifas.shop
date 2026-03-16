@@ -213,8 +213,8 @@
                                 GRATUITA (Sem pagamento PIX)</label>
                         </div>
                         <div class="form-group" id="totalNumbersGroup">
-                            <label>Quantidade Total de Números</label>
-                            <input type="number" id="raffleTotalNumbers" placeholder="Ex: 1000">
+                            <label>Meta / Limite de Números</label>
+                            <input type="number" id="raffleTotalNumbers" placeholder="Ex: 1000 (Bloqueia venda após atingir)">
                         </div>
                         <div class="form-actions" style="grid-column: span 2;">
                             <button type="submit" class="premium-btn">Salvar Rifa</button>
@@ -230,6 +230,7 @@
                                     <th>Nome</th>
                                     <th>Valor</th>
                                     <th>Min. Qty</th>
+                                    <th>Progresso</th>
                                     <th>Status</th>
                                     <th>Ações</th>
                                 </tr>
@@ -615,7 +616,14 @@
             async renderRafflesList() {
                 const raffles = await DataService.getRafflesList();
                 const container = document.getElementById('rafflesTableBody');
-                container.innerHTML = raffles.map(r => `
+
+                // Preparar dados com progresso (assíncrono)
+                const rafflesWithProgress = await Promise.all(raffles.map(async r => {
+                    const progress = await DataService.getRaffleProgress(r.id);
+                    return { ...r, progress };
+                }));
+
+                container.innerHTML = rafflesWithProgress.map(r => `
                     <tr>
                         <td data-label="Nome">
                             <strong>${r.name}</strong>
@@ -623,6 +631,12 @@
                         </td>
                         <td data-label="Valor">${r.isFree ? 'Grátis' : 'R$ ' + parseFloat(r.price).toFixed(2)}</td>
                         <td data-label="Min. Qty">${r.minQty}</td>
+                        <td data-label="Progresso">
+                            <div style="width:100%; height:8px; background:var(--bg-tertiary); border-radius:4px; overflow:hidden; margin-bottom:4px;">
+                                <div style="width:${r.progress}%; height:100%; background:var(--accent-primary);"></div>
+                            </div>
+                            <small style="font-size:10px; color:var(--text-dim);">${r.progress}% concluído</small>
+                        </td>
                         <td data-label="Status"><span class="status-pill ${r.status === 'Ativa' ? 'active' : ''}">${r.status}</span></td>
                         <td data-label="Ações">
                             <button class="nav-btn-link" onclick="AdminPanel.editRaffle('${r.id}')">Editar</button>

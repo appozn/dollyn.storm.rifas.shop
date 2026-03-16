@@ -286,6 +286,16 @@ const DataService = {
             }
         }
 
+        // 2. Auto-encerrar se bater a meta/limite
+        if (raffle.totalNumbers > 0) {
+            const soldTotal = (await this.getNumbersSold()).filter(n => n.raffleId === raffle.id).length;
+            if (soldTotal >= raffle.totalNumbers && raffle.status !== 'Encerrada') {
+                raffle.status = 'Encerrada';
+                // Salvar novamente com status atualizado (recursão curta)
+                return await this.saveRaffle(raffle);
+            }
+        }
+
         // 2. Atualizar Local (apenas após sucesso da nuvem ou se nuvem desativada propositalmente)
         let raffles = JSON.parse(localStorage.getItem(this.KEYS.RAFFLES_LIST) || '[]');
         raffles = raffles.filter(r => r.id !== raffle.id);
@@ -458,6 +468,16 @@ const DataService = {
             throw new Error("Limite de tentativas atingido. Volte amanhã ou clique em meus números para ver se chegou ou olhar o whatsapp.");
         }
 
+        // TRAVA DE LIMITE: Verificar se ainda há números disponíveis na rifa
+        const raffles = await this.getRafflesList();
+        const raffle = raffles.find(r => r.id === targetPurchase.raffleId);
+        if (raffle && raffle.totalNumbers > 0) {
+            const sold = (await this.getNumbersSold()).filter(n => n.raffleId === raffle.id).length;
+            if (sold + targetPurchase.qty > raffle.totalNumbers) {
+                throw new Error(`Limite excedido! Esta rifa tem limite de ${raffle.totalNumbers} números e já foram vendidos ${sold}. Esta compra de ${targetPurchase.qty} ultrapassa o limite.`);
+            }
+        }
+
         // Gerar números apenas na aprovação
         const numbers = await this.generateUniqueNumbers(targetPurchase.raffleId, targetPurchase.qty);
         console.log("Números gerados:", numbers);
@@ -488,7 +508,36 @@ const DataService = {
         }
 
         window.dispatchEvent(new Event('storage'));
+
+        // Se bater a meta após aprovação, encerrar a rifa
+        if (raffle && raffle.totalNumbers > 0) {
+            const newSold = (await this.getNumbersSold()).filter(n => n.raffleId === raffle.id).length;
+            if (newSold >= raffle.totalNumbers) {
+                raffle.status = 'Encerrada';
+                await this.saveRaffle(raffle);
+            }
+        }
+
         return true;
+    },
+
+    async getRaffleProgress(raffleId) {
+        const raffles = await this.getRafflesList();
+        const raffle = raffles.find(r => r.id === raffleId);
+        if (!raffle || !raffle.totalNumbers || raffle.totalNumbers <= 0) return 0;
+
+        const sold = (await this.getNumbersSold()).filter(n => n.raffleId === raffleId).length;
+        const percent = (sold / raffle.totalNumbers) * 100;
+        return Math.min(100, Math.round(percent));
+    },
+
+    async getAvailableSpots(raffleId) {
+        const raffles = await this.getRafflesList();
+        const raffle = raffles.find(r => r.id === raffleId);
+        if (!raffle || !raffle.totalNumbers || raffle.totalNumbers <= 0) return 999999; 
+
+        const sold = (await this.getNumbersSold()).filter(n => n.raffleId === raffleId).length;
+        return Math.max(0, raffle.totalNumbers - sold);
     },
 
     async getStats() {
