@@ -201,8 +201,14 @@
                             <select id="raffleStatus">
                                 <option value="Ativa">Ativa (Visível)</option>
                                 <option value="Disponível">Disponível (Visível)</option>
+                                <option value="Inativa">Inativa (Oculta p/ público)</option>
                                 <option value="Encerrada">Encerrada</option>
                             </select>
+                        </div>
+                        <div class="form-group" id="activationDateGroup">
+                            <label>Data/Hora de Ativação Automática</label>
+                            <input type="datetime-local" id="raffleActivationDate">
+                            <small style="color:var(--text-dim); font-size:10px;">Opcional: A rifa mudará de Inativa para Ativa nesta data.</small>
                         </div>
                         <div class="form-group"
                             style="grid-column: span 2; display: flex; align-items: center; gap: 10px; background: rgba(139, 92, 246, 0.1); padding: 15px; border-radius: 12px; border: 1px solid var(--accent-primary); margin-top: 10px;">
@@ -215,6 +221,10 @@
                         <div class="form-group" id="totalNumbersGroup">
                             <label>Meta / Limite de Números</label>
                             <input type="number" id="raffleTotalNumbers" placeholder="Ex: 1000 (Bloqueia venda após atingir)">
+                        </div>
+                        <div class="form-group" id="maxPerUserGroup" style="display: none; background: rgba(139, 92, 246, 0.05); padding: 15px; border-radius: 12px; border: 1px dashed var(--accent-primary);">
+                            <label style="color: var(--accent-primary);">Máximo de Números por Pessoa (CPF/Tel)</label>
+                            <input type="number" id="raffleMaxPerUser" placeholder="Ex: 2 (Apenas para rifas grátis)">
                         </div>
                         <div class="form-actions" style="grid-column: span 2;">
                             <button type="submit" class="premium-btn">Salvar Rifa</button>
@@ -508,13 +518,17 @@
                 });
                 document.getElementById('raffleIsFree')?.addEventListener('change', (e) => {
                     const priceInput = document.getElementById('rafflePrice');
+                    const maxPerUserGroup = document.getElementById('maxPerUserGroup');
                     if (e.target.checked) {
                         priceInput.value = '0';
                         priceInput.disabled = true;
                         priceInput.removeAttribute('required');
+                        maxPerUserGroup.style.display = 'block';
                     } else {
                         priceInput.disabled = false;
                         priceInput.setAttribute('required', 'true');
+                        maxPerUserGroup.style.display = 'none';
+                        document.getElementById('raffleMaxPerUser').value = '';
                     }
                 });
                 document.getElementById('winnerForm')?.addEventListener('submit', (e) => {
@@ -637,13 +651,34 @@
                             </div>
                             <small style="font-size:10px; color:var(--text-dim);">${r.progress}% concluído</small>
                         </td>
-                        <td data-label="Status"><span class="status-pill ${r.status === 'Ativa' ? 'active' : ''}">${r.status}</span></td>
+                        <td data-label="Status">
+                            <span class="status-pill ${r.status === 'Ativa' ? 'active' : (r.status === 'Inativa' ? 'inactive' : '')}">${r.status}</span>
+                            ${r.activationDate ? `<br><small style="font-size:9px; color:var(--text-dim);">Agenda: ${new Date(r.activationDate).toLocaleString('pt-BR')}</small>` : ''}
+                        </td>
                         <td data-label="Ações">
-                            <button class="nav-btn-link" onclick="AdminPanel.editRaffle('${r.id}')">Editar</button>
-                            <button class="premium-btn sm" style="background:#ef4444" onclick="AdminPanel.deleteRaffle('${r.id}')">Excluir</button>
+                            <div class="flex gap-10">
+                                <button class="nav-btn-link" onclick="AdminPanel.editRaffle('${r.id}')">Editar</button>
+                                ${r.status === 'Inativa' ? 
+                                    `<button class="premium-btn sm" style="background:var(--success)" onclick="AdminPanel.toggleRaffleStatus('${r.id}', 'Ativa')">Ativar</button>` : 
+                                    (r.status === 'Ativa' ? `<button class="premium-btn sm" style="background:var(--text-dim)" onclick="AdminPanel.toggleRaffleStatus('${r.id}', 'Inativa')">Ocultar</button>` : '')
+                                }
+                                <button class="premium-btn sm" style="background:#ef4444" onclick="AdminPanel.deleteRaffle('${r.id}')">Excluir</button>
+                            </div>
                         </td>
                     </tr>
                 `).join('');
+            },
+
+            async toggleRaffleStatus(id, newStatus) {
+                const raffles = await DataService.getRafflesList();
+                const r = raffles.find(x => x.id === id);
+                if (r) {
+                    r.status = newStatus;
+                    if (newStatus === 'Ativa') r.activationDate = null; // Clear agenda if manually activated
+                    await DataService.saveRaffle(r);
+                    alert(`Rifa agora está ${newStatus}!`);
+                    await this.renderRafflesList();
+                }
             },
 
             async deleteRaffle(id) {
@@ -671,8 +706,10 @@
                     price: document.getElementById('raffleIsFree').checked ? 0 : parseFloat(document.getElementById('rafflePrice').value || 0),
                     minQty: parseInt(document.getElementById('raffleMinQty').value),
                     totalNumbers: parseInt(document.getElementById('raffleTotalNumbers').value) || 0,
+                    maxPerUser: document.getElementById('raffleIsFree').checked ? (parseInt(document.getElementById('raffleMaxPerUser').value) || null) : null,
                     isFree: document.getElementById('raffleIsFree').checked,
                     status: document.getElementById('raffleStatus').value,
+                    activationDate: document.getElementById('raffleActivationDate').value || null,
                     createdAt: existing ? existing.createdAt : new Date().toISOString()
                 };
 
@@ -705,16 +742,21 @@
                     document.getElementById('rafflePrice').value = r.price;
                     document.getElementById('raffleMinQty').value = r.minQty;
                     document.getElementById('raffleTotalNumbers').value = r.totalNumbers || '';
+                    document.getElementById('raffleMaxPerUser').value = r.maxPerUser || '';
                     document.getElementById('raffleIsFree').checked = !!r.isFree;
+                    document.getElementById('raffleActivationDate').value = r.activationDate ? r.activationDate.slice(0, 16) : '';
 
-                    // Sync price field state
+                    // Sync price field and dynamic group state
                     const priceInput = document.getElementById('rafflePrice');
+                    const maxPerUserGroup = document.getElementById('maxPerUserGroup');
                     if (r.isFree) {
                         priceInput.disabled = true;
                         priceInput.removeAttribute('required');
+                        maxPerUserGroup.style.display = 'block';
                     } else {
                         priceInput.disabled = false;
                         priceInput.setAttribute('required', 'true');
+                        maxPerUserGroup.style.display = 'none';
                     }
 
                     document.getElementById('raffleStatus').value = r.status;

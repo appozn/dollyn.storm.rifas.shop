@@ -242,7 +242,7 @@
             }
 
             if (authForm) {
-                authForm.addEventListener('submit', (e) => {
+                authForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const emailInput = document.getElementById('email');
                     const passInput = document.getElementById('password');
@@ -251,7 +251,7 @@
 
                     const email = emailInput.value.trim();
                     const pass = passInput.value;
-                    const users = DataService.getUsers();
+                    const users = await DataService.getUsers();
 
                     if (isRegister) {
                         const name = document.getElementById('name').value;
@@ -290,20 +290,19 @@
                         window.location.href = 'index.html';
                     } else {
                         // Admin check
-                        DataService.loginAdmin(email, pass).then(isAdmin => {
-                            if (isAdmin) {
-                                window.location.href = 'admin.html';
-                                return;
-                            }
+                        const isAdmin = await DataService.loginAdmin(email, pass);
+                        if (isAdmin) {
+                            window.location.href = 'admin.html';
+                            return;
+                        }
 
-                            const user = users.find(u => u.email === email);
-                            if (user && user.password === DataService.encryptPassword(pass)) {
-                                localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(user));
-                                window.location.href = 'dashboard.html';
-                            } else {
-                                alert('Credenciais incorretas.');
-                            }
-                        });
+                        const user = users.find(u => u.email === email);
+                        if (user && user.password === DataService.encryptPassword(pass)) {
+                            localStorage.setItem(DataService.KEYS.CURRENT_USER, JSON.stringify(user));
+                            window.location.href = 'dashboard.html';
+                        } else {
+                            alert('Credenciais incorretas.');
+                        }
                     }
                 });
             }

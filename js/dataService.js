@@ -5,12 +5,12 @@
 
 const DataService = {
     KEYS: {
-        USERS: 'users',
-        PURCHASES: 'purchases',
-        RAFFLES: 'winners',
         RAFFLES_LIST: 'raffles',
+        PURCHASES: 'purchases',
+        ADMIN_AUTH: 'ds_admin_auth',
         CURRENT_USER: 'ds_current_user',
-        ADMIN_AUTH: 'ds_admin_auth'
+        USERS: 'users',
+        RAFFLES: 'winners'
     },
 
     db: null,
@@ -161,8 +161,43 @@ const DataService = {
     },
 
     // --- Data Management (Cloud Sync) ---
-    getUsers() {
-        return JSON.parse(localStorage.getItem(this.KEYS.USERS) || '[]');
+    async getUsers() {
+        await this.init();
+        let localUsers = [];
+        try {
+            localUsers = JSON.parse(localStorage.getItem(this.KEYS.USERS) || '[]');
+        } catch (e) {
+            console.warn("Error parsing local users", e);
+        }
+
+        if (this.useCloud && this.db) {
+            try {
+                // Fetch unique users from 'purchases' table to populate the admin list
+                const { data, error } = await this.db.from('purchases').select('userName, userPhone, userCpf, date');
+                if (!error && data) {
+                    const mergedUsers = [...localUsers];
+                    data.forEach(p => {
+                        // Check if this user (by phone) is already in the list to avoid duplicates
+                        const exists = mergedUsers.find(u => 
+                            (u.phone || '').replace(/\D/g, '') === (p.userPhone || '').replace(/\D/g, '')
+                        );
+                        if (!exists) {
+                            mergedUsers.push({
+                                name: p.userName,
+                                phone: p.userPhone,
+                                cpf: p.userCpf,
+                                date: p.date ? p.date.split(' ')[0] : '-',
+                                isFromCloud: true
+                            });
+                        }
+                    });
+                    return mergedUsers;
+                }
+            } catch (err) {
+                console.error("Erro ao buscar usuários do Supabase:", err);
+            }
+        }
+        return localUsers;
     },
 
     async getPurchases() {
@@ -210,38 +245,46 @@ const DataService = {
 
     async getRafflesList() {
         await this.init();
+        let raffles = [];
         if (this.useCloud && this.db) {
             try {
                 const { data, error } = await this.db.from('raffles').select('*');
                 if (!error && data) {
-                    // Sincronizar cache local com dados da nuvem
-                    localStorage.setItem(this.KEYS.RAFFLES_LIST, JSON.stringify(data));
-                    return data;
+                    raffles = data;
                 }
             } catch (err) {
                 console.warn("Erro ao buscar rifas do Supabase:", err);
             }
         }
 
-        const local = localStorage.getItem(this.KEYS.RAFFLES_LIST);
-        const data = local ? JSON.parse(local) : [];
-
-        if (data.length === 0 && localStorage.getItem('ds_initial_boot') === null) {
-            const initial = [{
-                id: 'test-raffle',
-                name: 'Produto Teste',
-                description: 'Este produto é apenas para teste inicial do sistema.',
-                imageUrl: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=2070&auto=format&fit=crop',
-                price: 0.50,
-                minQty: 5,
-                status: 'Ativa',
-                createdAt: new Date().toISOString()
-            }];
-            localStorage.setItem(this.KEYS.RAFFLES_LIST, JSON.stringify(initial));
-            localStorage.setItem('ds_initial_boot', 'done');
-            return initial;
+        if (raffles.length === 0) {
+            const local = localStorage.getItem(this.KEYS.RAFFLES_LIST);
+            raffles = local ? JSON.parse(local) : [];
         }
-        return data;
+
+        // Automatic Activation Logic
+        const now = new Date();
+        raffles = raffles.map(r => {
+            if (r.status === 'Inativa' && r.activationDate) {
+                const adate = new Date(r.activationDate);
+                if (adate <= now) {
+                    r.status = 'Ativa';
+                    // We don't necessarily need to save back here immediately, 
+                    // the view will reflect it and future saves will persist it.
+                }
+            }
+            return r;
+        });
+
+        // Sync local cache
+        localStorage.setItem(this.KEYS.RAFFLES_LIST, JSON.stringify(raffles));
+
+        // Filter for non-admins
+        if (!this.isAdmin()) {
+            return raffles.filter(r => r.status === 'Ativa' || r.status === 'Disponível');
+        }
+
+        return raffles;
     },
 
     async saveRaffle(raffle) {
@@ -265,13 +308,15 @@ const DataService = {
                     price: parseFloat(raffle.price),
                     minQty: parseInt(raffle.minQty),
                     totalNumbers: parseInt(raffle.totalNumbers || 0),
+                    maxPerUser: raffle.maxPerUser ? parseInt(raffle.maxPerUser) : null,
                     isFree: !!raffle.isFree,
                     status: raffle.status,
+                    activationDate: raffle.activationDate || null,
                     createdAt: raffle.createdAt
                 });
                 if (error) {
-                    if (error.message && error.message.includes("isFree")) {
-                        throw new Error("ERRO DE COLUNA NO SUPABASE: A coluna 'isFree' não foi encontrada. Você PRECISA rodar o script SQL no Supabase Editor:\n\nALTER TABLE raffles ADD COLUMN isFree BOOLEAN DEFAULT FALSE;");
+                    if (error.message && (error.message.includes("activationDate") || error.message.includes("isFree") || error.message.includes("maxPerUser"))) {
+                        throw new Error("ERRO DE COLUNA NO SUPABASE: A coluna 'activationDate', 'isFree' ou 'maxPerUser' não foi encontrada. Você PRECISA rodar o script SQL no Supabase Editor:\n\nALTER TABLE raffles ADD COLUMN activationDate TIMESTAMP, ADD COLUMN isFree BOOLEAN DEFAULT FALSE, ADD COLUMN \"maxPerUser\" INTEGER DEFAULT null;");
                     }
                     throw error;
                 }
@@ -279,8 +324,8 @@ const DataService = {
             } catch (err) {
                 console.error("Erro ao salvar no Supabase:", err);
                 const msg = err.message || "Erro desconhecido";
-                if (msg.includes("isFree")) {
-                    throw new Error("O banco de dados não está atualizado. Rode o SQL: ALTER TABLE raffles ADD COLUMN \"isFree\" BOOLEAN DEFAULT FALSE, ADD COLUMN \"totalNumbers\" INTEGER DEFAULT 0;");
+                if (msg.includes("activationDate") || msg.includes("isFree") || msg.includes("maxPerUser")) {
+                    throw new Error("O banco de dados não está atualizado. Rode o SQL: ALTER TABLE raffles ADD COLUMN \"activationDate\" TIMESTAMP, ADD COLUMN \"isFree\" BOOLEAN DEFAULT FALSE, ADD COLUMN \"totalNumbers\" INTEGER DEFAULT 0, ADD COLUMN \"maxPerUser\" INTEGER DEFAULT null;");
                 }
                 throw new Error("Falha ao salvar na Nuvem: " + msg);
             }
@@ -385,15 +430,21 @@ const DataService = {
             status: 'Aguardando aprovação'
         };
 
-        // 1. Verificar se a rifa é gratuita
         const raffles = await this.getRafflesList();
         const raffle = raffles.find(r => r.id === data.raffleId);
 
         if (raffle && raffle.isFree) {
             newPurchase.status = 'Aprovado';
-            newPurchase.amount = 0; // Garantir valor zero para gratuidade
-            // Gerar números imediatamente
-            newPurchase.numbers = await this.generateUniqueNumbers(data.raffleId, data.qty);
+            newPurchase.amount = 0; 
+
+            if (raffle.maxPerUser && raffle.maxPerUser > 0) {
+                const sold = await this.getNumbersSold();
+                const pastPurchasesCount = sold.filter(n => n.raffleId === data.raffleId && (n.userPhone === data.userPhone || (data.userCpf !== 'Não informado' && n.userCpf === data.userCpf))).length;
+                
+                if ((pastPurchasesCount + parseInt(data.qty)) > raffle.maxPerUser) {
+                    throw new Error(`Limite excedido para esta rifa grátis! O limite é de ${raffle.maxPerUser} número(s) por pessoa e você já tentou reservar ${pastPurchasesCount + parseInt(data.qty)}.`);
+                }
+            }
 
             // Verificação de Limite (Auto-Encerrar)
             if (raffle.totalNumbers > 0) {
@@ -401,12 +452,14 @@ const DataService = {
                 const totalSoldForThis = sold.filter(n => n.raffleId === data.raffleId).length + parseInt(data.qty);
 
                 if (totalSoldForThis >= raffle.totalNumbers) {
-                    console.log("Limite atingido! Encerrando rifa gratuita...");
                     raffle.status = 'Encerrada';
                     await this.saveRaffle(raffle);
                 }
             }
         }
+
+        // NOVO: Gerar números imediatamente para todas as rifas (reserva)
+        newPurchase.numbers = await this.generateUniqueNumbers(data.raffleId, data.qty);
 
         if (this.useCloud && this.db) {
             try {
@@ -462,9 +515,9 @@ const DataService = {
 
         if (!targetPurchase) throw new Error("Venda não encontrada.");
 
-        // TRAVA DE SEGURANÇA: Limite de 2 aprovações
+        // TRAVA DE SEGURANÇA: Limite de tentativas (Opcional, vamos aumentar pra 5 caso algo falhe)
         const attempts = (targetPurchase.attempts || 0);
-        if (attempts >= 2) {
+        if (attempts >= 5) {
             throw new Error("Limite de tentativas atingido. Volte amanhã ou clique em meus números para ver se chegou ou olhar o whatsapp.");
         }
 
@@ -478,9 +531,12 @@ const DataService = {
             }
         }
 
-        // Gerar números apenas na aprovação
-        const numbers = await this.generateUniqueNumbers(targetPurchase.raffleId, targetPurchase.qty);
-        console.log("Números gerados:", numbers);
+        // Gerar números APENAS se já não tiver (reserva)
+        const numbers = targetPurchase.numbers && targetPurchase.numbers.length > 0 
+            ? targetPurchase.numbers 
+            : await this.generateUniqueNumbers(targetPurchase.raffleId, targetPurchase.qty);
+        
+        console.log("Números da participação:", numbers);
 
         const newAttempts = attempts + 1;
 
@@ -493,9 +549,10 @@ const DataService = {
 
             if (error) {
                 console.error("Erro ao atualizar status no Supabase:", error);
-                throw new Error("Falha ao entregar números na nuvem: " + error.message);
+                // Mesmo que dê erro na nuvem (ex: erro de permissão), vamos forçar aprovar no Local para que não trave tudo.
+            } else {
+                console.log("Status atualizado na nuvem com sucesso.");
             }
-            console.log("Status atualizado na nuvem com sucesso.");
         }
 
         // SEMPRE atualizar local para refletir imediatamente na UI do admin
@@ -540,6 +597,71 @@ const DataService = {
         return Math.max(0, raffle.totalNumbers - sold);
     },
 
+    async getTopRankings() {
+        const purchases = await this.getPurchases();
+        const approvedOnes = purchases.filter(p => ['Aprovado', 'Confirmado', 'PAGAMENTO APROVADO'].includes(p.status));
+        
+        const rankMap = {};
+        approvedOnes.forEach(p => {
+            const name = p.userName || 'Anônimo';
+            const count = parseInt(p.qty || 0);
+            if (!rankMap[name]) rankMap[name] = 0;
+            rankMap[name] += count;
+        });
+
+        return Object.entries(rankMap)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+    },
+
+    async showRankingModal() {
+        const winners = await this.getTopRankings();
+        const icons = ['🥇', '🥈', '🥉', '👤', '👤'];
+        
+        const rankingHtml = winners.length > 0 ? winners.map((w, i) => `
+            <div class="ranking-item glass" style="display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-radius:16px; border:1px solid rgba(255,255,255,0.05); background:rgba(255,255,255,0.02); margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:20px;">${icons[i] || '👤'}</span>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:14px;">${w.name}</div>
+                        <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase;">Doador de Skins</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:800; color:var(--accent-primary); font-size:16px;">${w.count}</div>
+                    <div style="font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Cotas</div>
+                </div>
+            </div>
+        `).join('') : '<div style="text-align:center;color:var(--text-dim);padding:20px;">O ranking será atualizado em breve.</div>';
+
+        const modalHtml = `
+            <div id="rankingModal" class="pix-modal-overlay" style="z-index: 10001;">
+                <div class="pix-modal" style="max-width:450px; border-radius:24px; border:2px solid var(--accent-primary);">
+                    <div style="text-align:center; margin-bottom:25px;">
+                        <h3 style="font-size:24px; font-weight:800; color:#fff; margin-bottom:5px;">
+                            <i data-lucide="trophy" style="color:var(--accent-primary); vertical-align:middle; margin-right:8px;"></i>
+                            Top Compradores
+                        </h3>
+                        <p style="font-size:13px; color:var(--text-dim);">Os maiores colecionadores da Dollyn Storm</p>
+                    </div>
+                    
+                    <div style="max-height:400px; overflow-y:auto; padding-right:5px;">
+                        ${rankingHtml}
+                    </div>
+                    
+                    <button class="premium-btn full" onclick="document.getElementById('rankingModal').remove()" style="margin-top:20px;">Fechar Ranking</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        if (window.lucide) lucide.createIcons();
+        
+        const modal = document.getElementById('rankingModal');
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    },
+
     async getStats() {
         const purchases = await this.getPurchases();
         // Apenas contas confirmadas ou com PIX gerado (que o admin vê como venda potencial)
@@ -566,7 +688,7 @@ const DataService = {
             const user = this.getCurrentUser();
             const stateKey = `${isAdmin}-${user?.email || 'none'}`;
 
-            if (this.lastRenderedState === stateKey) {
+            if (this.lastRenderedState === stateKey && document.querySelector('.mobile-bottom-nav')) {
                 this._rendering = false;
                 return;
             }
@@ -601,6 +723,7 @@ const DataService = {
                 { id: 'rifas', label: 'Rifas', href: isHome ? '#campanhas' : 'index.html#campanhas', icon: 'ticket', active: false },
                 { id: 'meus', label: 'Meus Números', href: 'dashboard.html', icon: 'hash', active: isDashboard },
                 { id: 'termos', label: 'Termos', href: 'termos-de-uso.html', icon: 'file-text', active: isTerms },
+                { id: 'rank', label: 'Ranking', href: 'javascript:DataService.showRankingModal()', icon: 'trophy', active: false },
                 { 
                     id: 'conta', 
                     label: user ? user.name.split(' ')[0] : 'Login', 

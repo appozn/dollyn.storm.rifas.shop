@@ -117,9 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const grid = document.getElementById('campaignGrid');
         if (!grid) return;
 
-        const raffles = (await DataService.getRafflesList())
-            .filter(r => r.status === 'Ativa' || r.status === 'Disponível')
-            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        const raffles = await DataService.getRafflesList();
+        raffles.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
         const stateKey = JSON.stringify(raffles.map(r => r.id + r.status));
         if (lastCampaignsState === stateKey) return;
@@ -130,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isSoldOut = r.status === 'Encerrada' || (r.totalNumbers > 0 && progress >= 100);
 
                 return `
-                <div class="raffle-card ${isSoldOut ? 'sold-out' : ''}" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}" data-is-free="${!!r.isFree}">
+                <div class="raffle-card ${isSoldOut ? 'sold-out' : ''}" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}" data-is-free="${!!r.isFree}" data-max-per-user="${r.maxPerUser || ''}">
                     <div class="card-image">
                         <img src="${r.imageUrl}" alt="${r.name}" loading="lazy">
                         <div class="status-badge">${isSoldOut ? 'Esgotado' : 'Aberto'}</div>
@@ -190,6 +189,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderCampaignCards();
 
+    renderCampaignCards();
+
     // Consolidated Storage Listener
     window.addEventListener('storage', () => {
         renderCampaignCards();
@@ -226,6 +227,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            const maxPerUser = card.dataset.maxPerUser ? parseInt(card.dataset.maxPerUser) : null;
+            if (maxPerUser && newQty > maxPerUser) {
+                alert(`O limite máximo para esta rifa é de ${maxPerUser} número(s) por pessoa.`);
+                return;
+            }
+
             if (newQty > available) {
                 alert("Quantidade Limitada");
                 return;
@@ -253,6 +260,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            const maxPerUser = card.dataset.maxPerUser ? parseInt(card.dataset.maxPerUser) : null;
+            if (maxPerUser && newQty > maxPerUser) {
+                alert(`O limite máximo para esta rifa é de ${maxPerUser} número(s) por pessoa.`);
+                return;
+            }
+
             // Verificar limite máximo (Meta)
             const available = await DataService.getAvailableSpots(raffleId);
             if (newQty > available) {
@@ -264,7 +277,15 @@ document.addEventListener('DOMContentLoaded', () => {
             totalEl.textContent = `R$ ${(newQty * unitPrice).toFixed(2).replace('.', ',')}`;
         },
 
-        buyRaffle(raffleId) {
+        async buyRaffle(raffleId) {
+            const raffles = await DataService.getRafflesList();
+            const raffle = raffles.find(r => r.id === raffleId);
+            
+            if (!raffle || (raffle.status !== 'Ativa' && raffle.status !== 'Disponível' && !DataService.isAdmin())) {
+                alert("Esta rifa não está disponível para compra no momento.");
+                return;
+            }
+
             const card = document.querySelector(`.raffle-card[data-raffle-id="${raffleId}"]`);
             if (!card) return;
             const unitPrice = parseFloat(card.dataset.unitPrice);
@@ -273,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const qtyEl = document.getElementById(`qty-${raffleId}`);
             const currentQty = qtyEl ? parseInt(qtyEl.textContent) : 1;
             
-            // Verificação final antes de abrir modal
+            // Verificação final antes de processar
             DataService.getAvailableSpots(raffleId).then(available => {
                 if (currentQty > available) {
                     alert(`Limite atingido! Não é possível comprar ${currentQty} números. Disponíveis: ${available}`);
@@ -282,7 +303,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const total = isFree ? "0.00" : (currentQty * unitPrice).toFixed(2);
                 window.currentRaffleId = raffleId;
                 window.currentRaffleName = card.querySelector('h3').textContent;
-                showIdentityModal(total, currentQty, isFree);
+
+                // NOVO: Verificar se o usuário já está logado
+                const loggedUser = DataService.getCurrentUser();
+                if (loggedUser) {
+                    if (isFree) {
+                        showSuccessFeedback(total, currentQty, loggedUser.name, loggedUser.phone, loggedUser.cpf);
+                        processPurchase(total, currentQty, loggedUser.name, loggedUser.phone, loggedUser.cpf);
+                    } else {
+                        showPixModal(total, currentQty, loggedUser.name, loggedUser.phone, loggedUser.cpf);
+                    }
+                } else {
+                    // Se não estiver logado, pede identificação normalmente
+                    showIdentityModal(total, currentQty, isFree);
+                }
             });
         }
     });
@@ -460,8 +494,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) lucide.createIcons();
 
         } catch (error) {
+            // Remove o loader modal se ele existir e fechar antes de dar erro
+            const modal = document.getElementById('pixModal');
+            if (modal) modal.remove();
+            
             // ETAPA 6: Travas de Segurança (Anti-Erro)
             console.error("Erro no processamento da compra:", error);
+            
+            if (error.message && error.message.includes("Limite excedido")) {
+                alert(error.message);
+                return;
+            }
+
             alert("Erro crítico: " + error.message + "\nPor favor, entre em contato com o suporte.");
         }
     }
