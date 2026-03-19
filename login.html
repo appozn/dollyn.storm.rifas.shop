@@ -39,13 +39,7 @@
                     <input type="text" id="name" placeholder="Seu nome completo"
                         style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
                 </div>
-                <div class="form-group" id="cpfGroup" style="display: none; text-align: left;">
-                    <label
-                        style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">CPF
-                        (Apenas números)</label>
-                    <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14"
-                        style="width: 100%; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff;">
-                </div>
+
                 <div class="form-group" id="emailGroup" style="text-align: left;">
                     <label
                         style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-primary); font-weight: 700; margin-bottom: 8px; display: block;">E-mail</label>
@@ -210,29 +204,15 @@
             const authBtn = document.getElementById('authBtn');
             const toggleReg = document.getElementById('toggleReg');
             const nameGroup = document.getElementById('nameGroup');
-            const cpfGroup = document.getElementById('cpfGroup');
             const phoneGroup = document.getElementById('phoneGroup');
             const title = document.querySelector('h1');
 
             let isRegister = false;
 
-            // CPF Mask
-            const cpfInput = document.getElementById('cpf');
-            if (cpfInput) {
-                cpfInput.addEventListener('input', (e) => {
-                    let v = e.target.value.replace(/\D/g, "");
-                    v = v.replace(/(\d{3})(\d)/, "$1.$2");
-                    v = v.replace(/(\d{3})(\d)/, "$1.$2");
-                    v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-                    e.target.value = v;
-                });
-            }
-
             if (toggleReg) {
                 toggleReg.addEventListener('click', () => {
                     isRegister = !isRegister;
                     if (nameGroup) nameGroup.style.display = isRegister ? 'block' : 'none';
-                    if (cpfGroup) cpfGroup.style.display = isRegister ? 'block' : 'none';
                     if (phoneGroup) phoneGroup.style.display = isRegister ? 'block' : 'none';
                     if (document.getElementById('termsGroup')) document.getElementById('termsGroup').style.display = isRegister ? 'flex' : 'none';
                     if (title) title.textContent = isRegister ? 'Criar Conta' : 'Acesso ao Sistema';
@@ -255,13 +235,11 @@
 
                     if (isRegister) {
                         const name = document.getElementById('name').value;
-                        const cpfRaw = document.getElementById('cpf').value.replace(/\D/g, "");
                         const phone = document.getElementById('phone').value.replace(/\D/g, "");
                         const accepted = document.getElementById('acceptTermsReg').checked;
 
                         if (!accepted) return alert('Você precisa aceitar os termos de uso para criar sua conta.');
                         if (!name || name.length < 2) return alert('Informe seu nome completo.');
-                        if (!DataService.validateCPF(cpfRaw)) return alert('CPF inválido. Por favor, confira.');
                         if (!email || !email.includes('@')) return alert('Informe um e-mail válido.');
                         if (phone.length < 10) return alert('Informe um telefone válido.');
                         if (pass.length < 6) return alert('A senha deve ter no mínimo 6 caracteres.');
@@ -269,11 +247,10 @@
                         // Duplicate checks
                         if (users.find(u => u.email === email)) return alert('Este e-mail já está cadastrado.');
                         if (users.find(u => u.phone === phone)) return alert('Telefone já cadastrado.');
-                        if (users.find(u => u.cpf === cpfRaw)) return alert('CPF já cadastrado.');
 
                         const newUser = {
                             name,
-                            cpf: cpfRaw,
+                            cpf: "Não informado",
                             email,
                             phone,
                             password: DataService.encryptPassword(pass),

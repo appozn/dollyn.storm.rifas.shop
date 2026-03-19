@@ -130,16 +130,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 return `
                 <div class="raffle-card ${isSoldOut ? 'sold-out' : ''}" data-raffle-id="${r.id}" data-unit-price="${r.price}" data-min-qty="${r.minQty}" data-is-free="${!!r.isFree}" data-max-per-user="${r.maxPerUser || ''}">
-                    <div class="card-image">
+                    <div class="card-image" onclick="MainApp.openRaffleDetail('${r.id}')">
                         <img src="${r.imageUrl}" alt="${r.name}" loading="lazy">
                         <div class="status-badge">${isSoldOut ? 'Esgotado' : 'Aberto'}</div>
+                        <button class="card-share-btn" onclick="event.stopPropagation(); MainApp.shareRaffle('${r.id}', '${r.name.replace(/'/g, "'")}')" title="Compartilhar esta rifa"><i data-lucide="share-2" style="width:16px;height:16px;"></i></button>
                     </div>
                     <div class="card-body">
                         <div class="card-meta flex justify-between align-center">
                             <span class="product-type">Rifa de Skin CS</span>
                             <span class="unit-price-tag">Valor: R$ ${parseFloat(r.price).toFixed(2).replace('.', ',')}</span>
                         </div>
-                        <h3>${r.name}</h3>
+                        <h3 onclick="MainApp.openRaffleDetail('${r.id}')">${r.name}</h3>
                         <p class="card-subtitle">${r.description}</p>
 
                         ${r.totalNumbers > 0 ? `
@@ -174,20 +175,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="label">Total:</span>
                                 <span class="price" id="total-${r.id}">R$ ${(r.minQty * r.price).toFixed(2).replace('.', ',')}</span>
                             </div>
-                            <button class="premium-btn" ${isSoldOut ? 'disabled' : ''} onclick="MainApp.buyRaffle('${r.id}')">${isSoldOut ? 'Encerrada' : 'Participar'}</button>
+                            <button class="premium-btn" ${isSoldOut ? 'disabled' : ''} onclick="MainApp.openRaffleDetail('${r.id}')">${isSoldOut ? 'Encerrada' : 'Participar'}</button>
                         </div>
                     </div>
                 </div>
             `;
             }));
 
+
             grid.innerHTML = rafflesHtml.join('');
             if (window.lucide) lucide.createIcons();
             lastCampaignsState = stateKey;
         });
     };
-
-    renderCampaignCards();
 
     renderCampaignCards();
 
@@ -321,6 +321,203 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ======================================================
+    // RAFFLE DETAIL MODAL
+    // ======================================================
+    Object.assign(window.MainApp, {
+
+        closeRaffleDetail() {
+            const overlay = document.getElementById('raffleDetailOverlay');
+            if (!overlay) return;
+            const panel = overlay.querySelector('.raffle-detail-panel');
+            if (panel) panel.classList.add('closing');
+            overlay.classList.add('closing');
+            document.body.style.overflow = '';
+            setTimeout(() => overlay.remove(), 380);
+        },
+
+        shareRaffle(raffleId, raffleName) {
+            const url = `https://appozn.github.io/dollyn.storm.rifas.shop/?rifa=${encodeURIComponent(raffleId)}`;
+            const shareData = { title: `Rifa: ${raffleName}`, text: `Participe da rifa "${raffleName}" na Dollyn Storm! 🎮`, url };
+
+            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+                navigator.share(shareData).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(url).then(() => {
+                    MainApp._showToast('✅ Link copiado! Compartilhe com seus amigos.');
+                }).catch(() => {
+                    // Fallback for very old browsers
+                    const ta = document.createElement('textarea');
+                    ta.value = url;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.focus(); ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                    MainApp._showToast('✅ Link copiado! Compartilhe com seus amigos.');
+                });
+            }
+        },
+
+        _showToast(message) {
+            document.querySelectorAll('.share-toast').forEach(t => t.remove());
+            const toast = document.createElement('div');
+            toast.className = 'share-toast';
+            toast.innerHTML = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 320);
+            }, 2800);
+        },
+
+        async openRaffleDetail(raffleId) {
+            // Remove any existing overlay
+            document.getElementById('raffleDetailOverlay')?.remove();
+
+            // Fetch data
+            const raffles = await DataService.getRafflesList();
+            const strRaffleId = String(raffleId);
+            const r = raffles.find(x => String(x.id) === strRaffleId);
+            if (!r) return;
+
+            const progress = await DataService.getRaffleProgress(raffleId);
+            const isSoldOut = r.status === 'Encerrada' || (r.totalNumbers > 0 && progress >= 100);
+
+            // Build ranking
+            const purchases = await DataService.getPurchases();
+            const rafflePurchases = purchases.filter(p => String(p.raffleId) === strRaffleId);
+            const rankMap = {};
+            rafflePurchases.forEach(p => {
+                const key = p.userCpf && p.userCpf !== 'Não informado' ? p.userCpf : p.userName;
+                if (!rankMap[key]) rankMap[key] = { name: p.userName || 'Anônimo', count: 0 };
+                rankMap[key].count += parseInt(p.qty || 0);
+            });
+            const topBuyers = Object.values(rankMap).sort((a, b) => b.count - a.count).slice(0, 5);
+            const rankEmojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+            const rankClasses = ['gold', 'silver', 'bronze', 'other', 'other'];
+            const rankSubs = ['Líder da rifa', 'Top comprador', 'Top comprador', 'Participante', 'Participante'];
+
+            const rankingHTML = topBuyers.length > 0
+                ? topBuyers.map((w, i) => `
+                    <div class="raffle-detail-rank-item ${rankClasses[i]}">
+                        <div class="raffle-detail-rank-left">
+                            <span class="raffle-detail-rank-emoji">${rankEmojis[i]}</span>
+                            <div>
+                                <div class="raffle-detail-rank-name">${w.name}</div>
+                                <div class="raffle-detail-rank-sub">${rankSubs[i]}</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right">
+                            <div class="raffle-detail-rank-count">${w.count}</div>
+                            <div class="raffle-detail-rank-count-label">cotas</div>
+                        </div>
+                    </div>`).join('')
+                : `<div class="raffle-detail-rank-empty">🎯 Seja o primeiro a entrar no ranking!</div>`;
+
+            const progressHTML = r.totalNumbers > 0 ? `
+                <div class="raffle-detail-progress-block">
+                    <div class="raffle-detail-progress-top">
+                        <span style="color:var(--text-dim);">Progresso da rifa</span>
+                        <span style="color:var(--accent-primary);font-weight:800;">${progress}%</span>
+                    </div>
+                    <div class="raffle-detail-progress-bar-bg">
+                        <div class="raffle-detail-progress-bar-fill" style="width:${progress}%"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text-dim);">
+                        <span>${rafflePurchases.reduce((s,p) => s + parseInt(p.qty||0), 0)} vendidos</span>
+                        <span>${r.totalNumbers} total</span>
+                    </div>
+                </div>` : '';
+
+            const overlayHTML = `
+            <div id="raffleDetailOverlay" class="raffle-detail-overlay">
+                <div class="raffle-detail-panel">
+                    <!-- Image -->
+                    <div class="raffle-detail-image-wrap">
+                        <img src="${r.imageUrl}" alt="${r.name}" loading="lazy">
+                        <button class="raffle-detail-close" onclick="MainApp.closeRaffleDetail()">&times;</button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="raffle-detail-body">
+
+                        <!-- Header: title + share -->
+                        <div class="raffle-detail-header">
+                            <div class="raffle-detail-title-group">
+                                <div class="raffle-detail-badge">
+                                    <i data-lucide="crosshair"></i> Rifa de Skin CS
+                                </div>
+                                <h2 class="raffle-detail-title">${r.name}</h2>
+                            </div>
+                            <button class="raffle-detail-share-btn" onclick="MainApp.shareRaffle('${r.id}', '${r.name.replace(/'/g, "'")}')" title="Compartilhar esta rifa">
+                                <i data-lucide="share-2" style="width:18px;height:18px;"></i>
+                            </button>
+                        </div>
+
+                        <!-- Price -->
+                        <div class="raffle-detail-price-block">
+                            <div>
+                                <div class="raffle-detail-price-label">Valor por cota</div>
+                                <div class="raffle-detail-price-value">R$ ${parseFloat(r.price).toFixed(2).replace('.', ',')}</div>
+                                <div class="raffle-detail-price-sub">${r.isFree ? '🎁 Esta rifa é GRATUITA!' : `Mín. ${r.minQty} cota${r.minQty > 1 ? 's' : ''}`}</div>
+                            </div>
+                            <div style="text-align:right">
+                                <div class="raffle-detail-price-label">Status</div>
+                                <div style="font-size:13px;font-weight:800;color:${isSoldOut ? '#ef4444' : '#10b981'};">${isSoldOut ? '🔴 Esgotado' : '🟢 Aberto'}</div>
+                            </div>
+                        </div>
+
+                        <!-- Progress -->
+                        ${progressHTML}
+
+                        <!-- Description -->
+                        <div>
+                            <div class="raffle-detail-desc-title">
+                                <i data-lucide="file-text"></i> Descrição
+                            </div>
+                            <p class="raffle-detail-desc">${r.description || 'Sem descrição disponível.'}</p>
+                        </div>
+
+                        <!-- Ranking -->
+                        <div class="raffle-detail-ranking-section">
+                            <div class="raffle-detail-rank-title">
+                                <i data-lucide="trophy"></i> Top Compradores desta Rifa
+                            </div>
+                            ${rankingHTML}
+                        </div>
+
+                        <!-- CTA -->
+                        <div class="raffle-detail-cta">
+                            <button class="raffle-detail-participate-btn" ${isSoldOut ? 'disabled' : ''} onclick="MainApp.closeRaffleDetail(); setTimeout(() => MainApp.buyRaffle('${r.id}'), 200);">
+                                <i data-lucide="${isSoldOut ? 'lock' : 'zap'}" style="width:18px;height:18px;"></i>
+                                ${isSoldOut ? 'Rifa Encerrada' : 'Participar Agora'}
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>`;
+
+            document.body.insertAdjacentHTML('beforeend', overlayHTML);
+            if (window.lucide) lucide.createIcons();
+            document.body.style.overflow = 'hidden';
+
+            // Close on backdrop click
+            const overlay = document.getElementById('raffleDetailOverlay');
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) MainApp.closeRaffleDetail();
+            });
+
+            // Close on Escape key
+            const escHandler = (e) => {
+                if (e.key === 'Escape') { MainApp.closeRaffleDetail(); document.removeEventListener('keydown', escHandler); }
+            };
+            document.addEventListener('keydown', escHandler);
+        }
+    });
+
     function showIdentityModal(amount, qty, isFree = false) {
         const modalHtml = `
             <div id="idModal" class="pix-modal-overlay">
@@ -330,10 +527,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="form-group" style="margin-bottom:15px;text-align:left;">
                         <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--text-dim);font-weight:600;">NOME COMPLETO</label>
                         <input type="text" id="userName" placeholder="Ex: João Silva" style="width:100%;padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;color:#fff;outline:none;">
-                    </div>
-                    <div class="form-group" style="margin-bottom:15px;text-align:left;">
-                        <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--text-dim);font-weight:600;">CPF (OBRIGATÓRIO)</label>
-                        <input type="text" id="userCpf" placeholder="000.000.000-00" style="width:100%;padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;color:#fff;outline:none;">
                     </div>
                     <div class="form-group" style="margin-bottom:25px;text-align:left;">
                         <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--text-dim);font-weight:600;">WHATSAPP (TELEFONE)</label>
@@ -365,9 +558,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('proceedToPayBtn').addEventListener('click', () => {
             const name = document.getElementById('userName').value;
-            const cpf = document.getElementById('userCpf').value;
             const phone = document.getElementById('userPhone').value;
             const accepted = document.getElementById('acceptTerms').checked;
+            const cpf = "Não informado"; // Defaulting to not informed
 
             if (!accepted) {
                 alert('Você precisa aceitar os termos da plataforma para continuar.');
@@ -376,11 +569,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (name.length < 3) {
                 alert('Por favor, informe seu nome completo.');
-                return;
-            }
-
-            if (!DataService.validateCPF(cpf)) {
-                alert('Por favor, informe um CPF válido.');
                 return;
             }
 
@@ -542,4 +730,15 @@ document.addEventListener('DOMContentLoaded', () => {
             header?.classList.remove('scrolled');
         }
     });
+
+    // Auto-open detail modal if URL has ?rifa=ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedRaffleId = urlParams.get('rifa');
+    if (sharedRaffleId) {
+        setTimeout(() => {
+            if (window.MainApp && window.MainApp.openRaffleDetail) {
+                window.MainApp.openRaffleDetail(sharedRaffleId);
+            }
+        }, 500); // Wait a bit for everything to settle
+    }
 });
