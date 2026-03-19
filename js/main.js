@@ -385,6 +385,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const progress = await DataService.getRaffleProgress(raffleId);
             const isSoldOut = r.status === 'Encerrada' || (r.totalNumbers > 0 && progress >= 100);
 
+            // Pegar a quantidade selecionada do card na tela inicial
+            const qtyEl = document.getElementById(`qty-${raffleId}`);
+            const selectedQty = qtyEl ? parseInt(qtyEl.textContent) : r.minQty;
+            const totalVal = selectedQty * r.price;
+
             // Build ranking
             const purchases = await DataService.getPurchases();
             const rafflePurchases = purchases.filter(p => String(p.raffleId) === strRaffleId);
@@ -459,9 +464,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <!-- Price -->
                         <div class="raffle-detail-price-block">
                             <div>
-                                <div class="raffle-detail-price-label">Valor por cota</div>
-                                <div class="raffle-detail-price-value">R$ ${parseFloat(r.price).toFixed(2).replace('.', ',')}</div>
-                                <div class="raffle-detail-price-sub">${r.isFree ? '🎁 Esta rifa é GRATUITA!' : `Mín. ${r.minQty} cota${r.minQty > 1 ? 's' : ''}`}</div>
+                                <div class="raffle-detail-price-label">Quantidade Selecionada</div>
+                                <div class="raffle-detail-price-value">${selectedQty} cota${selectedQty > 1 ? 's' : ''}</div>
+                                <div class="raffle-detail-price-sub">${r.isFree ? '🎁 Esta rifa é GRATUITA!' : `Total: R$ ${totalVal.toFixed(2).replace('.', ',')}`}</div>
                             </div>
                             <div style="text-align:right">
                                 <div class="raffle-detail-price-label">Status</div>
@@ -489,11 +494,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
 
                         <!-- CTA -->
-                        <div class="raffle-detail-cta">
-                            <button class="raffle-detail-participate-btn" ${isSoldOut ? 'disabled' : ''} onclick="MainApp.closeRaffleDetail(); setTimeout(() => MainApp.buyRaffle('${r.id}'), 200);">
-                                <i data-lucide="${isSoldOut ? 'lock' : 'zap'}" style="width:18px;height:18px;"></i>
-                                ${isSoldOut ? 'Rifa Encerrada' : 'Participar Agora'}
-                            </button>
+                        <div class="raffle-detail-cta" id="inlineCtaArea-${r.id}">
+                            ${(() => {
+                                const loggedUser = DataService.getCurrentUser();
+                                if (isSoldOut) {
+                                    return `<button class="raffle-detail-participate-btn" disabled>
+                                                <i data-lucide="lock" style="width:18px;height:18px;"></i> Rifa Encerrada
+                                            </button>`;
+                                }
+                                if (loggedUser && !r.isFree) {
+                                    // NOVO: Gerar QR Code "Tela Cheia" para usuário logado (rifa paga)
+                                    return `<button class="raffle-detail-participate-btn qr-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);" onclick="MainApp.generateInlineQrCode('${r.id}', ${totalVal}, ${selectedQty}, '${r.name.replace(/'/g, "\\'")}')">
+                                                <i data-lucide="qr-code" style="width:18px;height:18px;"></i> Gerar Pix
+                                            </button>`;
+                                }
+                                // Para não logados ou rifa grátis, segue o fluxo normal com cor roxa
+                                return `<button class="raffle-detail-participate-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);" onclick="MainApp.closeRaffleDetail(); setTimeout(() => MainApp.buyRaffle('${r.id}'), 200);">
+                                            <i data-lucide="${r.isFree ? 'zap' : 'qr-code'}" style="width:18px;height:18px;"></i> ${r.isFree ? 'Participar Gratuitamente' : 'Gerar Pix'}
+                                        </button>`;
+                            })()}
                         </div>
 
                     </div>
@@ -515,6 +534,146 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.key === 'Escape') { MainApp.closeRaffleDetail(); document.removeEventListener('keydown', escHandler); }
             };
             document.addEventListener('keydown', escHandler);
+        },
+
+        generateInlineQrCode(raffleId, amount, qty, name) {
+            const overlay = document.getElementById('raffleDetailOverlay');
+            if (!overlay) return;
+            const panel = overlay.querySelector('.raffle-detail-panel');
+            if (!panel) return;
+
+            const pixKey = "57130513000134";
+            const amountStr = parseFloat(amount).toFixed(2);
+            const payload = PixGenerator.generatePayload(pixKey, amountStr);
+
+            window.currentRaffleId = raffleId;
+            window.currentRaffleName = name;
+
+            const loggedUser = DataService.getCurrentUser();
+
+            // Substituir todo o painel com a visão exclusiva de pagamento
+            panel.innerHTML = `
+                <button class="raffle-detail-close" onclick="MainApp.closeRaffleDetail()" style="position: absolute; right: 15px; top: 15px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; z-index: 10;">&times;</button>
+                
+                <div class="raffle-detail-body" id="qrCodeDedicatedArea" style="padding: 40px 20px 30px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                    <div style="font-size: 40px; margin-bottom: 15px;">
+                        <i data-lucide="qr-code" style="width: 56px; height: 56px; color: var(--accent-primary);"></i>
+                    </div>
+                    <h2 class="raffle-detail-title" style="margin-bottom: 8px; font-size: 24px;">Pague via PIX</h2>
+                    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 30px; line-height: 1.5; max-width: 90%;">Escaneie o QR Code abaixo pelo aplicativo do seu banco para participar da rifa <strong>${name}</strong>.</p>
+
+                    <div class="qr-code" style="background: white; padding: 15px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload)}" alt="QR Code PIX" style="display:block;">
+                    </div>
+                    
+                    <div style="width: 100%; max-width: 320px;">
+                        <div class="pix-key-container" style="display: flex; gap: 8px; margin-bottom: 25px;">
+                            <input type="text" value="${payload}" id="inlinePixCopyKey" readonly style="flex: 1; padding: 14px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 12px; color: #fff; font-size: 13px; outline: none;">
+                            <button onclick="MainApp.copyInlinePixFull()" style="padding: 0 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; color: #fff; font-weight: 600; cursor: pointer; font-size: 14px; transition: 0.2s;">Copiar</button>
+                        </div>
+
+                        <div style="font-weight: 800; font-size: 28px; color: #fff; margin-bottom: 4px;">R$ ${amountStr.replace('.', ',')}</div>
+                        <div style="font-size: 13px; color: var(--text-dim); margin-bottom: 35px; text-transform: uppercase; letter-spacing: 0.5px;">Referente a ${qty} cota${qty > 1 ? 's' : ''}</div>
+                        
+                        <button class="premium-btn full" onclick="MainApp.confirmInlinePayment('${raffleId}', '${amountStr}', ${qty}, '${loggedUser.name}', '${loggedUser.phone}', '${loggedUser.cpf}')" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); padding: 18px; font-size: 16px; border-radius: 14px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
+                            Confirmar Pagamento
+                        </button>
+                    </div>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        },
+
+        copyInlinePixFull() {
+            const keyInput = document.getElementById('inlinePixCopyKey');
+            if (keyInput) {
+                keyInput.select();
+                document.execCommand('copy');
+                const btn = keyInput.nextElementSibling;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copiado!';
+                btn.style.background = 'var(--success)';
+                btn.style.borderColor = 'var(--success)';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = 'var(--bg-tertiary)';
+                    btn.style.borderColor = 'var(--border-color)';
+                }, 2000);
+            }
+        },
+
+        async confirmInlinePayment(raffleId, amount, qty, name, phone, cpf) {
+            const container = document.getElementById('qrCodeDedicatedArea');
+            if (!container) return;
+
+            // Mostrar estado de carregamento
+            container.innerHTML = `
+                <div style="padding: 60px 20px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                    <i data-lucide="loader" class="animate-spin" style="width:48px;height:48px;color:var(--accent-primary);margin-bottom:20px;"></i>
+                    <h3 style="font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px;">Processando Pagamento</h3>
+                    <p style="color:var(--text-muted); font-size:14px;">Por favor aguarde um momento...</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+
+            try {
+                const purchase = await DataService.completePurchase({
+                    raffleId: window.currentRaffleId || raffleId,
+                    raffleName: window.currentRaffleName || 'Produto',
+                    userName: name,
+                    userPhone: phone,
+                    userCpf: cpf,
+                    amount: amount,
+                    qty: qty
+                });
+
+                const numbersText = purchase.numbers.map(n => '#' + n).join(', ');
+                const whatsappMsg = encodeURIComponent(
+                    `🎉 Olá ${name}! Seu pagamento foi registrado na Dollyn Storm Rifas!\n\n` +
+                    `📋 Rifa: ${purchase.raffleName}\n` +
+                    `🔢 Seus números: ${numbersText}\n\n` +
+                    `⏳ Aguarde a confirmação do pagamento pelo administrador para validar sua participação.\n` +
+                    `Boa sorte! 🍀`
+                );
+                const cleanPhone = phone.replace(/\D/g, '');
+                const whatsappUrl = `https://wa.me/55${cleanPhone}?text=${whatsappMsg}`;
+
+                container.innerHTML = `
+                    <div style="padding: 40px 20px; text-align: center; width: 100%; max-width: 360px;">
+                        <i data-lucide="${purchase.status === 'Aprovado' ? 'check-circle' : 'clock'}" style="width:64px;height:64px;color:${purchase.status === 'Aprovado' ? '#10b981' : '#f59e0b'}; margin-bottom:20px; display: inline-block;"></i>
+                        <h3 style="font-size:22px;margin-bottom:10px;color:${purchase.status === 'Aprovado' ? '#10b981' : '#f59e0b'}; font-weight: 800;">${purchase.status === 'Aprovado' ? 'Participação Confirmada!' : 'Pagamento Enviado!'}</h3>
+                        <p style="color:var(--text-muted);font-size:14px;line-height:1.6;margin-bottom:25px;">${purchase.status === 'Aprovado' ? 'Você já está participando da rifa!' : 'Seus números estão reservados. O acesso será validado após a confirmação.'}</p>
+                        
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:140px;overflow-y:auto;background:rgba(0,0,0,0.3);padding:15px;border-radius:14px;margin-bottom:30px;border:1px solid rgba(255,255,255,0.05);">
+                            ${purchase.numbers.map(n => `<span style="font-size:13px;opacity:0.9;background:rgba(255,255,255,0.08);padding:6px;border-radius:8px;font-weight:600;">#${n}</span>`).join('')}
+                        </div>
+
+                        <a href="${whatsappUrl}" target="_blank" class="premium-btn full" style="padding:16px;background:linear-gradient(135deg,#25d366,#128c7e);display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;margin-bottom:15px;font-size:15px;border-radius:12px;">
+                            <i data-lucide="smartphone" style="width:18px;height:18px;"></i> Guardar Comprovante
+                        </a>
+                        <button class="close-modal" onclick="MainApp.closeRaffleDetail()" style="background:transparent;border:none;font-size:14px;text-decoration:underline;color:var(--text-muted);cursor:pointer;padding:10px;">Voltar para o Início</button>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
+
+            } catch (error) {
+                console.error("Erro no processamento da compra:", error);
+                
+                if (error.message && error.message.includes("Limite atingido")) {
+                    alert(error.message);
+                }
+                
+                container.innerHTML = `
+                    <div style="padding: 40px 20px; text-align: center; width: 100%; max-width: 340px;">
+                        <i data-lucide="alert-circle" style="width:64px;height:64px;color:#ef4444;margin-bottom:20px;display:inline-block;"></i>
+                        <h3 style="font-size: 20px; color: #fff; margin-bottom: 12px; font-weight: 700;">Ocorreu um Erro</h3>
+                        <p style="color:#ef4444; font-size:14px; margin-bottom:30px; line-height: 1.5;">${error.message || 'Houve uma falha inesperada no processamento. Tente novamente.'}</p>
+                        <button class="premium-btn full" onclick="MainApp.generateInlineQrCode('${raffleId}', '${amount}', ${qty}, '${window.currentRaffleName}')" style="background: linear-gradient(135deg, #ef4444, #b91c1c); margin-bottom:15px;">Tentar Novamente</button>
+                        <button class="close-modal" onclick="MainApp.closeRaffleDetail()" style="background:transparent;border:none;font-size:14px;text-decoration:underline;color:var(--text-muted);cursor:pointer;">Voltar</button>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
+            }
         }
     });
 
