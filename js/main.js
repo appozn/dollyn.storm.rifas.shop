@@ -340,6 +340,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="text" id="userPhone" placeholder="(00) 00000-0000" style="width:100%;padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;color:#fff;outline:none;">
                     </div>
 
+                    <button onclick="DataService.showRaffleRankingModal(window.currentRaffleId||'', window.currentRaffleName||'esta rifa')" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;margin-bottom:16px;background:rgba(139,92,246,0.1);border:1.5px solid rgba(139,92,246,0.45);border-radius:12px;color:#a78bfa;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;" onmouseover="this.style.background='rgba(139,92,246,0.18)'" onmouseout="this.style.background='rgba(139,92,246,0.1)'">
+                        <i data-lucide="trophy" style="width:16px;height:16px;"></i> Ver Ranking desta Rifa
+                    </button>
+
                     <!-- Stage 1: Terms Checkbox -->
                     <div style="text-align:left; margin-bottom:20px; font-size:13px; color:var(--text-muted); display:flex; align-items:center; gap:10px;">
                         <input type="checkbox" id="acceptTerms" style="width:18px; height:18px; cursor:pointer;">

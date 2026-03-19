@@ -662,6 +662,74 @@ const DataService = {
         modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     },
 
+    async showRaffleRankingModal(raffleId, raffleName) {
+        const purchases = await this.getPurchases();
+        const icons = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+
+        // Filtrar compras (qualquer status) para esta rifa específica
+        const rafflePurchases = purchases.filter(p => p.raffleId === raffleId);
+
+        // Montar ranking por nome/CPF
+        const rankMap = {};
+        rafflePurchases.forEach(p => {
+            const key = p.userCpf && p.userCpf !== 'Não informado' ? p.userCpf : p.userName;
+            if (!rankMap[key]) rankMap[key] = { name: p.userName || 'Anônimo', count: 0 };
+            rankMap[key].count += parseInt(p.qty || 0);
+        });
+
+        const topBuyers = Object.values(rankMap)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        const rankingHtml = topBuyers.length > 0 ? topBuyers.map((w, i) => {
+            const isTop3 = i < 3;
+            const bgColor = i === 0 ? 'rgba(255,215,0,0.08)' : i === 1 ? 'rgba(192,192,192,0.08)' : i === 2 ? 'rgba(205,127,50,0.08)' : 'rgba(255,255,255,0.02)';
+            const borderColor = i === 0 ? 'rgba(255,215,0,0.3)' : i === 1 ? 'rgba(192,192,192,0.2)' : i === 2 ? 'rgba(205,127,50,0.2)' : 'rgba(255,255,255,0.05)';
+            const nameColor = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#fff';
+            return `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:${isTop3 ? '14px 18px' : '11px 16px'}; border-radius:14px; border:1px solid ${borderColor}; background:${bgColor}; margin-bottom:8px; transition: transform 0.15s;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:${isTop3 ? '22px' : '17px'}; min-width:28px; text-align:center;">${icons[i] || '👤'}</span>
+                    <div>
+                        <div style="font-weight:${isTop3 ? '800' : '600'}; color:${nameColor}; font-size:${isTop3 ? '15px' : '13px'};">${w.name}</div>
+                        <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px;">${i === 0 ? 'Líder da rifa' : i < 3 ? 'Top comprador' : 'Participante'}</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:900; color:${i < 3 ? nameColor : 'var(--accent-primary)'}; font-size:${isTop3 ? '20px' : '16px'};">${w.count}</div>
+                    <div style="font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">cotas</div>
+                </div>
+            </div>
+        `}).join('') : `<div style="text-align:center; padding:30px 20px;">
+            <div style="font-size:40px; margin-bottom:12px;">🎯</div>
+            <div style="color:var(--text-dim); font-size:14px;">Seja o primeiro a entrar no ranking!<br>Esta rifa ainda não tem compradores.</div>
+        </div>`;
+
+        const modalHtml = `
+            <div id="raffleRankingModal" class="pix-modal-overlay" style="z-index: 10002;">
+                <div class="pix-modal" style="max-width:460px; border-radius:24px; border:2px solid rgba(255,215,0,0.4); background: linear-gradient(160deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);">
+                    <div style="text-align:center; margin-bottom:20px;">
+                        <div style="font-size:36px; margin-bottom:8px;">🏆</div>
+                        <h3 style="font-size:20px; font-weight:900; color:#fff; margin-bottom:4px; line-height:1.2;">Top Compradores</h3>
+                        <p style="font-size:12px; color:#ffd700; font-weight:600; background:rgba(255,215,0,0.1); border:1px solid rgba(255,215,0,0.2); border-radius:20px; padding:4px 14px; display:inline-block; margin-top:4px;">${raffleName || 'Esta Rifa'}</p>
+                    </div>
+                    
+                    <div style="max-height:380px; overflow-y:auto; padding-right:4px; scrollbar-width:thin; scrollbar-color:rgba(255,215,0,0.3) transparent;">
+                        ${rankingHtml}
+                    </div>
+                    
+                    <button class="premium-btn full" onclick="document.getElementById('raffleRankingModal').remove()" style="margin-top:18px; background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,165,0,0.1)); border: 1px solid rgba(255,215,0,0.3); color: #ffd700;">Fechar Ranking</button>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        if (window.lucide) lucide.createIcons();
+
+        const modal = document.getElementById('raffleRankingModal');
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    },
+
     async getStats() {
         const purchases = await this.getPurchases();
         // Apenas contas confirmadas ou com PIX gerado (que o admin vê como venda potencial)
